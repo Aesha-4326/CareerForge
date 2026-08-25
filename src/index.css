@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --background: #effafd;
+    --surface: #ffffff;
+    --surface-muted: #dff2f8;
+    --text: #17324d;
+    --text-muted: #58718a;
+    --border: #c9e3ed;
+    --primary: #4a8bdf;
+    --primary-hover: #3378cf;
+    --accent: #669df5;
+    --accent-soft: #f7e3f0;
+    --shadow: rgba(40, 82, 118, 0.14);
+  }
+
+  :root[data-theme='dark'] {
+    --background: #070d15;
+    --surface: #1d3855;
+    --surface-muted: #061b31;
+    --text: #eff8ff;
+    --text-muted: #aec4d4;
+    --border: #16242f;
+    --primary: #6499de;
+    --primary-hover: #3378cf;
+    --accent: #3a79df;
+    --accent-soft: #3a1d3a;
+    --shadow: rgba(0, 0, 0, 0.28);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--background);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  button, input, select, textarea {
+    color: inherit;
+  }
+}
+
+/* Theme surfaces keep existing component utilities consistent across views. */
+.glass-panel, .glass-card {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.glass-panel { box-shadow: 0 8px 24px var(--shadow); }
+.glass-card { transition: transform 0.2s ease-in-out, border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+.glass-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 10px 25px -5px var(--shadow); }
+
+.solid-primary { background: var(--primary); }
+.solid-accent { color: var(--accent); }
+
+/* Legacy Tailwind neutrals and primary utilities map to the active palette. */
+[class*='bg-slate-900'], [class*='bg-slate-800'], [class*='bg-slate-700'] { background-color: var(--surface-muted) !important; }
+[class*='border-slate-'], [class*='border-indigo-'] { border-color: var(--border) !important; }
+[class*='text-slate-'], [class~='text-white'] { color: var(--text-muted) !important; }
+[class~='text-slate-100'], [class~='text-slate-200'], [class~='text-white'] { color: var(--text) !important; }
+[class*='hover:bg-slate-'] :hover, [class*='hover:bg-slate-']:hover { background-color: var(--surface) !important; }
+[class*='text-indigo-'] { color: var(--primary) !important; }
+[class*='bg-indigo-'][class*='/10'], [class*='bg-indigo-'][class*='/20'] { background-color: color-mix(in srgb, var(--primary) 12%, transparent) !important; }
+[class~='bg-indigo-600'], [class~='bg-indigo-500'] { background-color: var(--primary) !important; }
+[class*='hover:bg-indigo-']:hover { background-color: var(--primary-hover) !important; }
+[class*='text-purple-'], [class*='text-pink-'] { color: var(--accent) !important; }
+[class*='bg-purple-'][class*='/10'], [class*='bg-pink-'][class*='/10'] { background-color: var(--accent-soft) !important; }
+[class~='bg-purple-600'], [class~='bg-pink-500'] { background-color: var(--accent) !important; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
