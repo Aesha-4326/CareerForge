@@ -13,20 +13,68 @@ import {
   User,
   X
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../utils/api';
 
 export default function Navbar({ unreadNotifications, setUnreadNotifications, theme, setTheme, isMobileOpen, setIsMobileOpen }) {
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [notifications, setNotifications] = useState([]);
 
-  const notificationsList = [
-    { id: 1, title: "Interview Scheduled!", desc: "Microsoft SDE-1 Technical Round 1 scheduled for Aug 10, 10:00 AM.", time: "10 mins ago" },
-    { id: 2, title: "AI ATS Analysis Ready", desc: "Your updated resume score increased from 82% to 88%!", time: "1 hour ago" },
-    { id: 3, title: "New Job Match: Google", desc: "Software Engineer post matches 92% of your skill profile.", time: "3 hours ago" }
-  ];
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadNotifications() {
+      if (!user?.token) return;
+      try {
+        const response = await fetch(`${API_URL}/api/notifications`, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        const data = await response.json();
+        if (isActive && response.ok) {
+          setNotifications(data.notifications || []);
+          setUnreadNotifications(data.unreadCount || 0);
+        }
+      } catch {
+        if (isActive) {
+          setNotifications([]);
+          setUnreadNotifications(0);
+        }
+      }
+    }
+
+    loadNotifications();
+    const refreshId = window.setInterval(loadNotifications, 60000);
+    return () => {
+      isActive = false;
+      window.clearInterval(refreshId);
+    };
+  }, [user?.token, setUnreadNotifications]);
+
+  const markNotificationsRead = async () => {
+    if (!user?.token || unreadNotifications === 0) return;
+    setUnreadNotifications(0);
+    setNotifications((currentNotifications) => currentNotifications.map((notification) => ({ ...notification, isRead: true })));
+    try {
+      await fetch(`${API_URL}/api/notifications/read-all`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+    } catch {
+      // The next background refresh restores the server state if needed.
+    }
+  };
+
+  const formatNotificationTime = (dateValue) => {
+    const elapsedMinutes = Math.max(0, Math.round((Date.now() - new Date(dateValue).getTime()) / 60000));
+    if (elapsedMinutes < 1) return 'Just now';
+    if (elapsedMinutes < 60) return `${elapsedMinutes} min ago`;
+    if (elapsedMinutes < 1440) return `${Math.floor(elapsedMinutes / 60)} hr ago`;
+    return `${Math.floor(elapsedMinutes / 1440)} days ago`;
+  };
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -113,7 +161,7 @@ export default function Navbar({ unreadNotifications, setUnreadNotifications, th
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 setShowUserDropdown(false);
-                setUnreadNotifications(0);
+                markNotificationsRead();
               }}
               className="relative p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 text-slate-300 transition-colors border border-slate-700/50"
             >
@@ -136,13 +184,16 @@ export default function Navbar({ unreadNotifications, setUnreadNotifications, th
                   </button>
                 </div>
                 <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                  {notificationsList.map(n => (
-                    <div key={n.id} className="p-2.5 rounded-xl bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/40 transition-colors">
+                  {notifications.length === 0 && (
+                    <p className="py-6 text-center text-xs text-slate-400">No notifications yet.</p>
+                  )}
+                  {notifications.map(notification => (
+                    <div key={notification._id} className={`p-2.5 rounded-xl border transition-colors ${notification.isRead ? 'bg-slate-800/40 border-slate-700/40' : 'bg-indigo-500/10 border-indigo-500/30'}`}>
                       <div className="flex items-start justify-between">
-                        <h5 className="text-xs font-semibold text-white">{n.title}</h5>
-                        <span className="text-[10px] text-slate-500">{n.time}</span>
+                        <h5 className="text-xs font-semibold text-white">{notification.title}</h5>
+                        <span className="text-[10px] text-slate-500">{formatNotificationTime(notification.createdAt)}</span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">{n.desc}</p>
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">{notification.message}</p>
                     </div>
                   ))}
                 </div>

@@ -28,9 +28,17 @@ const dsaSubmissionSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    timeComplexity: {
+      type: String,
+      default: "Not specified"
+    },
+    spaceComplexity: {
+      type: String,
+      default: "Not specified"
+    },
     status: {
       type: String,
-      enum: ["Passed", "Failed"],
+      enum: ["Submitted", "Passed", "Failed"],
       required: true
     },
     testsPassed: {

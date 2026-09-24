@@ -1,6 +1,43 @@
 const DsaSubmission = require("../models/DsaSubmission");
 const DsaProgress = require("../models/DsaProgress");
 
+const languageIds = { javascript: 63, python: 71, java: 62 };
+
+const runCode = async (req, res) => {
+  try {
+    const { code, language, stdin = "" } = req.body;
+    const languageId = languageIds[language];
+    if (!code || !languageId) return res.status(400).json({ message: "Code and a supported language are required." });
+    if (!process.env.JUDGE0_URL) {
+      return res.status(503).json({ message: "Code execution is not configured. Add JUDGE0_URL to backend/.env." });
+    }
+
+    const headers = { "Content-Type": "application/json" };
+    if (process.env.JUDGE0_API_KEY) headers["X-Auth-Token"] = process.env.JUDGE0_API_KEY;
+    const response = await fetch(`${process.env.JUDGE0_URL.replace(/\/$/, "")}/submissions?base64_encoded=false&wait=true`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ source_code: code, language_id: languageId, stdin })
+    });
+    const result = await response.json();
+    if (!response.ok) return res.status(502).json({ message: result.error || "Code runner rejected the submission." });
+
+    res.status(200).json({
+      success: true,
+      result: {
+        status: result.status?.description || "Completed",
+        stdout: result.stdout || "",
+        stderr: result.stderr || result.compile_output || "",
+        time: result.time || "-",
+        memory: result.memory ? `${result.memory} KB` : "-"
+      }
+    });
+  } catch (error) {
+    console.error("Code execution error:", error);
+    res.status(500).json({ message: "Unable to run code right now." });
+  }
+};
+
 // Helper to calculate streak
 function calculateStreak(lastDate, currentStreak) {
   if (!lastDate) return 1;
@@ -36,6 +73,8 @@ const submitSolution = async (req, res) => {
       difficulty,
       language,
       code,
+      timeComplexity,
+      spaceComplexity,
       status,
       testsPassed,
       totalTests,
@@ -54,7 +93,9 @@ const submitSolution = async (req, res) => {
       difficulty: difficulty || "Easy",
       language: language || "javascript",
       code,
-      status: status || "Passed",
+      timeComplexity: timeComplexity || "Not specified",
+      spaceComplexity: spaceComplexity || "Not specified",
+      status: status || "Submitted",
       testsPassed: testsPassed !== undefined ? testsPassed : 3,
       totalTests: totalTests !== undefined ? totalTests : 3,
       executionTimeMs: executionTimeMs || 15
@@ -105,7 +146,7 @@ const submitSolution = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: status === "Passed" ? "Solution Passed! Progress saved to MongoDB." : "Submission recorded.",
+      message: status === "Passed" ? "Solution passed and progress was updated." : "Practice submission saved.",
       submission,
       progress
     });
@@ -156,6 +197,7 @@ const getSubmissionHistory = async (req, res) => {
 };
 
 module.exports = {
+  runCode,
   submitSolution,
   getDsaStats,
   getSubmissionHistory

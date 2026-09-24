@@ -12,14 +12,16 @@ import {
   Sparkles,
   User
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useAuth } from '../../context/AuthContext';
 
 export default function AuthPage() {
-  const { login, register } = useAuth();
+  const { login, register, requestPasswordReset, resetPassword, verifyEmail } = useAuth();
   
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const resetToken = new URLSearchParams(window.location.search).get('resetPassword');
+  const verificationToken = new URLSearchParams(window.location.search).get('verifyEmail');
+  const [mode, setMode] = useState(resetToken ? 'reset' : 'login'); // 'login' | 'register' | 'forgot' | 'reset'
   const [role, setRole] = useState('student'); // 'student' | 'company' | 'admin'
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -27,15 +29,67 @@ export default function AuthPage() {
   // Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [rollNo, setRollNo] = useState('');
+  const [course, setCourse] = useState('B.Tech');
   const [branch, setBranch] = useState('Computer Science');
   const [companyName, setCompanyName] = useState('');
   const [accessCode, setAccessCode] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [unlockedFields, setUnlockedFields] = useState({});
+
+  const unlockField = (fieldName) => {
+    setUnlockedFields((currentFields) => ({ ...currentFields, [fieldName]: true }));
+  };
+
+  const clearForm = () => {
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setName('');
+    setRollNo('');
+    setCourse('B.Tech');
+    setCompanyName('');
+    setAccessCode('');
+    setUnlockedFields({});
+    setShowPassword(false);
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  useEffect(() => {
+    async function completeVerification() {
+      if (!verificationToken) return;
+      const result = await verifyEmail(verificationToken);
+      if (result.success) setSuccessMessage(result.message); else setErrorMessage(result.message);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    completeVerification();
+  }, [verificationToken, verifyEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
+
+    if (mode === 'forgot') {
+      if (!email) return setErrorMessage('Please enter your email address.');
+      const res = await requestPasswordReset(email);
+      if (res.success) setSuccessMessage(res.message); else setErrorMessage(res.message);
+      return;
+    }
+
+    if (mode === 'reset') {
+      if (password.length < 8) return setErrorMessage('Password must be at least 8 characters long.');
+      const res = await resetPassword(resetToken, password);
+      if (res.success) {
+        setSuccessMessage(res.message);
+        window.history.replaceState({}, '', window.location.pathname);
+        setMode('login');
+      } else setErrorMessage(res.message);
+      return;
+    }
 
     if (mode === 'login') {
       if (!email || !password) {
@@ -51,8 +105,12 @@ export default function AuthPage() {
         setErrorMessage('Please fill in all required fields.');
         return;
       }
-      if (password.length < 6) {
-        setErrorMessage('Password must be at least 6 characters long.');
+      if (password.length < 8) {
+        setErrorMessage('Password must be at least 8 characters long.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage('Passwords do not match.');
         return;
       }
       const res = await register({
@@ -61,6 +119,7 @@ export default function AuthPage() {
         password,
         role,
         rollNo,
+        course,
         branch,
         companyName,
         accessCode
@@ -102,9 +161,9 @@ export default function AuthPage() {
         <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/80 shadow-2xl backdrop-blur-xl">
           
           {/* Mode Selector Tabs */}
-          <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 mb-6">
+          {mode !== 'forgot' && mode !== 'reset' && <div className="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800 mb-6">
             <button
-              onClick={() => { setMode('login'); setErrorMessage(''); }}
+              onClick={() => { clearForm(); setMode('login'); }}
               className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${
                 mode === 'login'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25'
@@ -114,7 +173,7 @@ export default function AuthPage() {
               Sign In
             </button>
             <button
-              onClick={() => { setMode('register'); setRole('student'); setErrorMessage(''); }}
+              onClick={() => { clearForm(); setMode('register'); setRole('student'); }}
               className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${
                 mode === 'register'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25'
@@ -123,17 +182,17 @@ export default function AuthPage() {
             >
               Create Account
             </button>
-          </div>
+          </div>}
 
           {/* Role Selector Grid */}
-          <div className="mb-6">
+          {(mode === 'login' || mode === 'register') && <div className="mb-6">
             <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">
               Select Your Role
             </label>
             <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
-                onClick={() => setRole('student')}
+                onClick={() => { clearForm(); setRole('student'); }}
                 className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center space-y-1.5 ${
                   role === 'student'
                     ? 'border-indigo-500 bg-indigo-500/10 text-white font-semibold shadow-md shadow-indigo-500/10'
@@ -146,7 +205,7 @@ export default function AuthPage() {
 
               <button
                 type="button"
-                onClick={() => setRole('company')}
+                onClick={() => { clearForm(); setRole('company'); }}
                 className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center space-y-1.5 ${
                   role === 'company'
                     ? 'border-emerald-500 bg-emerald-500/10 text-white font-semibold shadow-md shadow-emerald-500/10'
@@ -159,7 +218,7 @@ export default function AuthPage() {
 
               <button
                 type="button"
-                onClick={() => setRole('admin')}
+                onClick={() => { clearForm(); setRole('admin'); }}
                 className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center space-y-1.5 ${
                   role === 'admin'
                     ? 'border-rose-500 bg-rose-500/10 text-white font-semibold shadow-md shadow-rose-500/10'
@@ -170,7 +229,7 @@ export default function AuthPage() {
                 <span className="text-xs">TPO Admin</span>
               </button>
             </div>
-          </div>
+          </div>}
 
           {/* Error Banner */}
           {errorMessage && (
@@ -180,8 +239,14 @@ export default function AuthPage() {
             </div>
           )}
 
+          {successMessage && (
+            <div className="mb-6 p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-400">
+              {successMessage}
+            </div>
+          )}
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             
             {/* Register Specific Fields */}
             {mode === 'register' && (
@@ -192,7 +257,10 @@ export default function AuthPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Aesha Narola"
+                    autoComplete="off"
+                    name="careerforge-full-name"
+                    readOnly={!unlockedFields.name}
+                    onFocus={() => unlockField('name')}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-slate-900/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -209,11 +277,10 @@ export default function AuthPage() {
                 <input
                   type="email"
                   required
-                  placeholder={
-                    role === 'student' ? 'student@college.edu' :
-                    role === 'company' ? 'recruiter@company.com' :
-                    'admin@college.edu'
-                  }
+                  autoComplete="off"
+                  name="careerforge-account-email"
+                  readOnly={!unlockedFields.email}
+                  onFocus={() => unlockField('email')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-900/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -223,16 +290,38 @@ export default function AuthPage() {
 
             {/* Additional Registration Fields per Role */}
             {mode === 'register' && role === 'student' && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">Roll Number</label>
                   <input
                     type="text"
-                    placeholder="e.g. CS2026-099"
+                    autoComplete="off"
+                    name="careerforge-roll-number"
+                    readOnly={!unlockedFields.rollNo}
+                    onFocus={() => unlockField('rollNo')}
                     value={rollNo}
                     onChange={(e) => setRollNo(e.target.value)}
                     className="w-full bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">Course</label>
+                  <select
+                    value={course}
+                    onChange={(e) => setCourse(e.target.value)}
+                    className="w-full bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  >
+                    <option value="B.Tech">B.Tech</option>
+                    <option value="B.Sc">B.Sc</option>
+                    <option value="M.Sc">M.Sc</option>
+                    <option value="BCA">BCA</option>
+                    <option value="MCA">MCA</option>
+                    <option value="BBA">BBA</option>
+                    <option value="B.Com">B.Com</option>
+                    <option value="M.Tech">M.Tech</option>
+                    <option value="Diploma">Diploma</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">Branch</label>
@@ -257,7 +346,10 @@ export default function AuthPage() {
                   <Briefcase className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
                   <input
                     type="text"
-                    placeholder="e.g. Google, Microsoft, Adobe"
+                    autoComplete="off"
+                    name="careerforge-company-name"
+                    readOnly={!unlockedFields.companyName}
+                    onFocus={() => unlockField('companyName')}
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     className="w-full bg-slate-900/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -274,23 +366,31 @@ export default function AuthPage() {
                 <input
                   type="password"
                   required
+                  autoComplete="off"
+                  name="careerforge-invitation-code"
+                  readOnly={!unlockedFields.accessCode}
+                  onFocus={() => unlockField('accessCode')}
                   value={accessCode}
                   onChange={(e) => setAccessCode(e.target.value)}
-                  placeholder="Enter your invitation code"
                   className="w-full bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
             )}
 
             {/* Password Field */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password *</label>
+            {mode !== 'forgot' && <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                {mode === 'register' ? 'Create Password *' : mode === 'reset' ? 'New Password *' : 'Password *'}
+              </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="••••••••"
+                  autoComplete={mode === 'register' || mode === 'reset' ? 'new-password' : 'off'}
+                  name={mode === 'login' ? 'careerforge-sign-in-password' : 'careerforge-create-password'}
+                  readOnly={!unlockedFields.password}
+                  onFocus={() => unlockField('password')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-slate-900/70 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -303,17 +403,49 @@ export default function AuthPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
+            </div>}
+
+            {mode === 'register' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Confirm Password *</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    name="careerforge-confirm-password"
+                    readOnly={!unlockedFields.confirmPassword}
+                    onFocus={() => unlockField('confirmPassword')}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full bg-slate-900/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode === 'login' && (
+              <button type="button" onClick={() => { setMode('forgot'); setErrorMessage(''); }} className="text-xs text-indigo-400 hover:opacity-80">
+                Forgot your password?
+              </button>
+            )}
 
             {/* Submit Button */}
             <button
               type="submit"
               className="w-full mt-2 solid-primary py-3 rounded-xl text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:opacity-95 transition-all flex items-center justify-center space-x-2"
             >
-              <span>{mode === 'login' ? `Sign In as ${role.toUpperCase()}` : `Create ${role.toUpperCase()} Account`}</span>
+              <span>{mode === 'login' ? `Sign In as ${role.toUpperCase()}` : mode === 'register' ? `Create ${role.toUpperCase()} Account` : mode === 'forgot' ? 'Send reset link' : 'Set new password'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {(mode === 'forgot' || mode === 'reset') && (
+            <button type="button" onClick={() => { window.history.replaceState({}, '', window.location.pathname); setMode('login'); }} className="mt-4 text-xs text-indigo-400 hover:opacity-80">
+              Back to sign in
+            </button>
+          )}
 
         </div>
 

@@ -3,6 +3,8 @@ const { protect, authorize } = require("../middleware/authMiddleware");
 const {
   getPlacementAnalytics,
   getStudentRoster,
+  getUsers,
+  updateUserAccount,
   getDrives,
   createDrive,
   updateDrive,
@@ -16,6 +18,8 @@ router.use(protect, authorize("admin"));
 
 router.get("/analytics", getPlacementAnalytics);
 router.get("/students", getStudentRoster);
+router.get("/users", getUsers);
+router.patch("/users/:id", updateUserAccount);
 router.get("/drives", getDrives);
 router.post("/drives", createDrive);
 router.put("/drives/:id", updateDrive);

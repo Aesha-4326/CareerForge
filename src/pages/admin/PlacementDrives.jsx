@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { MOCK_COMPANIES } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../utils/api';
 
 export default function PlacementDrives() {
   const { user } = useAuth();
@@ -23,7 +24,7 @@ export default function PlacementDrives() {
   const loadDrives = async () => {
     if (user && user.token) {
       try {
-        const res = await fetch("http://localhost:5000/api/admin/drives", {
+        const res = await fetch(`${API_URL}/api/admin/drives`, {
           headers: { "Authorization": `Bearer ${user.token}` }
         });
         const data = await res.json();
@@ -58,7 +59,7 @@ export default function PlacementDrives() {
     setIsSubmitting(true);
     if (user && user.token) {
       try {
-        const res = await fetch("http://localhost:5000/api/admin/drives", {
+        const res = await fetch(`${API_URL}/api/admin/drives`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -91,7 +92,7 @@ export default function PlacementDrives() {
   const handleDeleteDrive = async (id) => {
     if (!user || !user.token) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/drives/${id}`, {
+      const res = await fetch(`${API_URL}/api/admin/drives/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${user.token}` }
       });

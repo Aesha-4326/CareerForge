@@ -6,6 +6,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../utils/api';
 
 export default function SkillsCertifications({ student, setStudent }) {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export default function SkillsCertifications({ student, setStudent }) {
     if (!user || !user.token) return;
     setIsSaving(true);
     try {
-      await fetch("http://localhost:5000/api/student/profile", {
+      await fetch(`${API_URL}/api/student/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

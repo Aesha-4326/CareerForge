@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { MOCK_STUDENT_ROSTER } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../utils/api';
 
 export default function StudentManagement() {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export default function StudentManagement() {
     async function loadStudents() {
       if (user && user.token) {
         try {
-          const res = await fetch("http://localhost:5000/api/admin/students", {
+          const res = await fetch(`${API_URL}/api/admin/students`, {
             headers: { "Authorization": `Bearer ${user.token}` }
           });
           const data = await res.json();

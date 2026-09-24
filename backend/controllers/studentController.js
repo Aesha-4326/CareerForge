@@ -38,6 +38,7 @@ const getStudentProfile = async (req, res) => {
       name: user.name,
       email: user.email,
       rollNo: user.rollNo || "CS2026-084",
+      course: user.course || "B.Tech",
       branch: user.branch || "Information Technology",
       year: user.year || "4th Year (2026 Batch)",
       cgpa: user.cgpa || 8.85,
@@ -66,6 +67,7 @@ const updateStudentProfile = async (req, res) => {
     const { 
       name, 
       rollNo, 
+      course,
       branch, 
       year, 
       cgpa, 
@@ -87,6 +89,7 @@ const updateStudentProfile = async (req, res) => {
 
     if (name) user.name = name;
     if (rollNo) user.rollNo = rollNo;
+    if (course) user.course = course;
     if (branch) user.branch = branch;
     if (year) user.year = year;
     if (cgpa !== undefined) user.cgpa = Number(cgpa);
@@ -110,6 +113,7 @@ const updateStudentProfile = async (req, res) => {
         name: user.name,
         email: user.email,
         rollNo: user.rollNo,
+        course: user.course,
         branch: user.branch,
         year: user.year,
         cgpa: user.cgpa,

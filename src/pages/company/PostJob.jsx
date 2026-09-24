@@ -9,6 +9,7 @@ import {
   Send,
   Zap
 } from 'lucide-react';
+import { API_URL } from '../../utils/api';
 
 export default function PostJob({ jobs, setJobs, setActiveTab }) {
   const [formData, setFormData] = useState({
@@ -60,7 +61,7 @@ export default function PostJob({ jobs, setJobs, setActiveTab }) {
     try {
       const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
       if (savedUser.token) {
-        await fetch("http://localhost:5000/api/jobs", {
+        await fetch(`${API_URL}/api/jobs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

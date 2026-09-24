@@ -1,8 +1,9 @@
 export const INITIAL_STUDENT_PROFILE = {
   name: "Aesha Narola",
-  email: "aeshanarola@college.edu",
+  email: "aeshanarola@gmail.com",
   rollNo: "CS2026-084",
-  branch: "Iformation Technology",
+  course: "B.Tech",
+  branch: "Information Technology",
   year: "4th Year (2026 Batch)",
   cgpa: 8.85,
   backlogs: 0,
@@ -251,10 +252,10 @@ export const PLACEMENT_STATS = {
 };
 
 export const MOCK_STUDENT_ROSTER = [
-  { id: "S01", name: "Aesha Narola", rollNo: "CS2026-084", branch: "CSE", cgpa: 8.85, status: "In Process", company: "-", package: "-" },
-  { id: "S02", name: "Rohan Sharma", rollNo: "AIML2026-012", branch: "AI/ML", cgpa: 9.2, status: "Placed", company: "Google", package: "₹24.5 LPA" },
-  { id: "S03", name: "Ananya Roy", rollNo: "IT2026-045", branch: "IT", cgpa: 8.7, status: "Placed", company: "Microsoft", package: "₹22.0 LPA" },
-  { id: "S04", name: "Vikram Malhotra", rollNo: "CE2026-090", branch: "CE", cgpa: 7.9, status: "Placed", company: "Adobe", package: "₹19.0 LPA" },
-  { id: "S05", name: "Sneha Reddy", rollNo: "CS2026-110", branch: "CSE", cgpa: 8.4, status: "Unplaced", company: "-", package: "-" },
-  { id: "S06", name: "Rahul Verma", rollNo: "ITE2026-030", branch: "ITE", cgpa: 7.2, status: "Unplaced", company: "-", package: "-" }
+  { id: "S01", name: "Aesha Narola", rollNo: "23SE02IT119", branch: "IT", cgpa: 8.85, status: "In Process", company: "-", package: "-" },
+  { id: "S02", name: "Rohan Sharma", rollNo: "23SE02AI101", branch: "AI/ML", cgpa: 9.2, status: "Placed", company: "Google", package: "₹24.5 LPA" },
+  { id: "S03", name: "Ananya Pande", rollNo: "23SE02IT118", branch: "IT", cgpa: 8.7, status: "Placed", company: "Microsoft", package: "₹22.0 LPA" },
+  { id: "S04", name: "Viram Malhotra", rollNo: "23SE02CS090", branch: "CE", cgpa: 7.9, status: "Placed", company: "Adobe", package: "₹19.0 LPA" },
+  { id: "S05", name: "Sneha Dudhat", rollNo: "23SE02CSE110", branch: "CSE", cgpa: 8.4, status: "Unplaced", company: "-", package: "-" },
+  { id: "S06", name: "Rahul Jariwala", rollNo: "23SE02ITE030", branch: "ITE", cgpa: 8.1, status: "In Process", company: "-", package: "-" }
 ];

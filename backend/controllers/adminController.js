@@ -79,7 +79,7 @@ const getStudentRoster = async (req, res) => {
     // Seed default sample roster if new DB
     if (!students || students.length === 0) {
       const defaultRoster = [
-        { id: "1", name: "Aesha Narola", rollNo: "CS2026-084", branch: "Information Technology", cgpa: 8.85, atsScore: 88, status: "Placed", company: "Google" },
+        { id: "1", name: "Aesha Narola", rollNo: "CS2026-084", course: "B.Tech", branch: "Information Technology", cgpa: 8.85, atsScore: 88, status: "Placed", company: "Google" },
         { id: "2", name: "Rahul Sharma", rollNo: "CS2026-012", branch: "Computer Science", cgpa: 9.10, atsScore: 92, status: "Placed", company: "Microsoft" },
         { id: "3", name: "Priya Patel", rollNo: "IT2026-045", branch: "Information Technology", cgpa: 8.45, atsScore: 84, status: "Shortlisted", company: "Amazon" },
         { id: "4", name: "Aniket Verma", rollNo: "EC2026-023", branch: "Electronics & Comm", cgpa: 7.90, atsScore: 78, status: "Unplaced", company: "-" }
@@ -92,6 +92,7 @@ const getStudentRoster = async (req, res) => {
       name: s.name,
       email: s.email,
       rollNo: s.rollNo || "CS2026-000",
+      course: s.course || "B.Tech",
       branch: s.branch || "Computer Science",
       cgpa: s.cgpa || 8.5,
       atsScore: s.atsScore || 85,
@@ -103,6 +104,39 @@ const getStudentRoster = async (req, res) => {
   } catch (error) {
     console.error("Error fetching student roster:", error);
     res.status(500).json({ message: "Server error fetching student roster" });
+  }
+};
+
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password -emailVerificationTokenHash -passwordResetTokenHash").sort({ createdAt: -1 });
+    res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error("Error fetching accounts:", error);
+    res.status(500).json({ message: "Unable to fetch accounts." });
+  }
+};
+
+const updateUserAccount = async (req, res) => {
+  try {
+    const { role, isActive } = req.body;
+    if (req.params.id === req.user.userId && isActive === false) {
+      return res.status(400).json({ message: "You cannot deactivate your own account." });
+    }
+    if (role && !["student", "company", "admin"].includes(role)) {
+      return res.status(400).json({ message: "Invalid account role." });
+    }
+
+    const changes = {};
+    if (role) changes.role = role;
+    if (typeof isActive === "boolean") changes.isActive = isActive;
+    const user = await User.findByIdAndUpdate(req.params.id, changes, { new: true, runValidators: true })
+      .select("-password -emailVerificationTokenHash -passwordResetTokenHash");
+    if (!user) return res.status(404).json({ message: "Account not found." });
+    res.status(200).json({ success: true, user });
+  } catch (error) {
+    console.error("Error updating account:", error);
+    res.status(500).json({ message: "Unable to update account." });
   }
 };
 
@@ -258,6 +292,8 @@ const deleteDrive = async (req, res) => {
 module.exports = {
   getPlacementAnalytics,
   getStudentRoster,
+  getUsers,
+  updateUserAccount,
   getDrives,
   createDrive,
   updateDrive,

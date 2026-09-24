@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_URL } from '../utils/api';
 
 const AuthContext = createContext(null);
 
@@ -24,7 +25,7 @@ export function AuthProvider({ children }) {
   // Login Handler (backend only)
   const login = async (email, password, expectedRole = null) => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password })
@@ -37,6 +38,7 @@ export function AuthProvider({ children }) {
           email: data.user.email,
           role: data.user.role,
           rollNo: data.user.rollNo,
+          course: data.user.course,
           branch: data.user.branch,
           companyName: data.user.companyName,
           title: data.user.title,
@@ -53,7 +55,7 @@ export function AuthProvider({ children }) {
         return { success: true, user: fullUser };
       }
       return { success: false, message: data.message || 'Invalid email or password.' };
-    } catch (error) {
+    } catch {
       return { success: false, message: 'Unable to connect to the server. Please try again.' };
     }
   };
@@ -61,7 +63,7 @@ export function AuthProvider({ children }) {
   // Register Handler (backend only)
   const register = async (userData) => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -69,8 +71,9 @@ export function AuthProvider({ children }) {
           email: userData.email.trim(),
           password: userData.password,
           role: userData.role,
-          rollNo: userData.rollNo,
-          branch: userData.branch,
+        rollNo: userData.rollNo,
+        course: userData.course,
+        branch: userData.branch,
           companyName: userData.companyName,
           accessCode: userData.accessCode
         })
@@ -83,6 +86,7 @@ export function AuthProvider({ children }) {
           email: data.user.email,
           role: data.user.role,
           rollNo: data.user.rollNo,
+          course: data.user.course,
           branch: data.user.branch,
           companyName: data.user.companyName,
           title: data.user.title,
@@ -96,7 +100,49 @@ export function AuthProvider({ children }) {
         return { success: true, user: newUser };
       }
       return { success: false, message: data.message || 'Registration failed.' };
-    } catch (error) {
+    } catch {
+      return { success: false, message: 'Unable to connect to the server. Please try again.' };
+    }
+  };
+
+  const requestPasswordReset = async (email) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/password-reset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() })
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message || 'Unable to request a password reset.' };
+    } catch {
+      return { success: false, message: 'Unable to connect to the server. Please try again.' };
+    }
+  };
+
+  const resetPassword = async (token, password) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/password-reset/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password })
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message || 'Unable to reset the password.' };
+    } catch {
+      return { success: false, message: 'Unable to connect to the server. Please try again.' };
+    }
+  };
+
+  const verifyEmail = async (token) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await response.json();
+      return { success: response.ok, message: data.message || 'Unable to verify the email.' };
+    } catch {
       return { success: false, message: 'Unable to connect to the server. Please try again.' };
     }
   };
@@ -112,6 +158,9 @@ export function AuthProvider({ children }) {
       isAuthenticated: !!user,
       login,
       register,
+      requestPasswordReset,
+      resetPassword,
+      verifyEmail,
       logout,
     }}>
       {children}

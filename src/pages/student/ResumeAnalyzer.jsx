@@ -1,3 +1,5 @@
+import * as pdfjsLib from 'pdfjs-dist';
+
 import {
   AlertCircle,
   ArrowRight,
@@ -14,59 +16,28 @@ import {
   Zap
 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../utils/api';
 import { analyzeResumeContent } from '../../utils/aiServices';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { useAuth } from '../../context/AuthContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export default function ResumeAnalyzer({ setStudent }) {
   const { user } = useAuth();
-  const sampleResumeText = `AESHA NAROLA
-Email: aesha.narola@college.edu | Phone: +91 98765 43210 | Location: Bangalore
-GitHub: github.com/aeshanarola | LinkedIn: linkedin.com/in/aeshanarola
-
-OBJECTIVE
-Motivated Computer Science undergraduate seeking a Software Engineering role. Proficient in Java, Spring Boot, React.js, MySQL, REST APIs, and Data Structures.
-
-EDUCATION
-B.Tech in Computer Science & Engineering (2022 - 2026)
-CGPA: 8.85 / 10.0 | Relevant Coursework: Data Structures, Algorithms, DBMS, Operating Systems, Computer Networks
-
-TECHNICAL SKILLS
-- Languages: Java, JavaScript, SQL, HTML/CSS
-- Frameworks: Spring Boot, React.js, Tailwind CSS, Express.js
-- Databases & Tools: MySQL, Git, RESTful APIs, Postman, Docker Basics
-
-PROJECTS
-Smart Placement Portal | React, Node.js, MongoDB
-- Engineered a centralized campus placement portal for 450+ students.
-- Implemented real-time resume parsing and score generation algorithms.
-
-Microservices E-Commerce API | Java, Spring Boot, MySQL, Redis
-- Developed REST APIs handling high-volume order transactions with Spring Security authentication.
-- Optimized database queries, reducing response times by 35%.
-
-CERTIFICATIONS
-- AWS Certified Developer Associate
-- Meta Front-End Developer Professional
-`;
-
-  const [resumeText, setResumeText] = useState(sampleResumeText);
+  const [resumeText, setResumeText] = useState('');
   const [targetJobDescription, setTargetJobDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [fileName, setFileName] = useState("resume.txt");
+  const [fileName, setFileName] = useState("No resume selected");
   const fileInputRef = useRef(null);
   const displayScore = analysisResult ? Math.min(80, analysisResult.score) : 0;
 
   const handleNewResume = () => {
     setAnalysisResult(null);
     setResumeText('');
-    setFileName('resume.txt');
+    setFileName('No resume selected');
     fileInputRef.current?.click();
   };
 
@@ -194,11 +165,12 @@ CERTIFICATIONS
             });
             setStudent(prev => ({ ...prev, atsScore: data.analysisResult.atsScore }));
           } else {
-            // Trigger initial real Gemini AI analysis
-            handleAnalyze(sampleResumeText);
+            setResumeText('');
+            setAnalysisResult(null);
           }
         } catch {
-          handleAnalyze(sampleResumeText);
+          setResumeText('');
+          setAnalysisResult(null);
         }
       }
     }
@@ -327,7 +299,7 @@ CERTIFICATIONS
           {!analysisResult ? (
             <div className="glass-panel p-12 rounded-2xl border border-slate-800 text-center space-y-4">
               <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
-              <h3 className="text-base font-bold text-white">Google Gemini AI Engine Analyzing Resume...</h3>
+              <h3 className="text-base font-bold text-white">Analyzing Resume...</h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto">
                 Evaluating candidate text against recruiter search keywords, impact action verbs, and mandatory section structures.
               </p>

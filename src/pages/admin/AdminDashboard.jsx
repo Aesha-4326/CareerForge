@@ -21,6 +21,7 @@ import {
 } from 'recharts';
 import { PLACEMENT_STATS } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
+import { API_URL } from '../../utils/api';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -31,7 +32,7 @@ export default function AdminDashboard() {
     async function loadAdminStats() {
       if (user && user.token) {
         try {
-          const res = await fetch("http://localhost:5000/api/admin/analytics", {
+          const res = await fetch(`${API_URL}/api/admin/analytics`, {
             headers: { "Authorization": `Bearer ${user.token}` }
           });
           const data = await res.json();

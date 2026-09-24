@@ -11,9 +11,13 @@
     --border: #c9e3ed;
     --primary: #4a8bdf;
     --primary-hover: #3378cf;
+    --primary-soft: rgba(74, 139, 223, 0.12);
     --accent: #669df5;
     --accent-soft: #f7e3f0;
     --shadow: rgba(40, 82, 118, 0.14);
+    --editor-surface: #f7fbfd;
+    --editor-text: #17324d;
+    --editor-border: #c9e3ed;
   }
 
   :root[data-theme='dark'] {
@@ -25,9 +29,13 @@
     --border: #16242f;
     --primary: #6499de;
     --primary-hover: #3378cf;
+    --primary-soft: rgba(100, 153, 222, 0.12);
     --accent: #3a79df;
     --accent-soft: #3a1d3a;
     --shadow: rgba(0, 0, 0, 0.28);
+    --editor-surface: #071522;
+    --editor-text: #e8f3fb;
+    --editor-border: #263f52;
   }
 
   body {
@@ -55,6 +63,13 @@
 .solid-primary { background: var(--primary); }
 .solid-accent { color: var(--accent); }
 
+.dsa-code-editor {
+  min-height: 260px;
+  background: var(--editor-surface);
+  color: var(--editor-text);
+  border: 1px solid var(--editor-border);
+}
+
 /* Legacy Tailwind neutrals and primary utilities map to the active palette. */
 [class*='bg-slate-900'], [class*='bg-slate-800'], [class*='bg-slate-700'] { background-color: var(--surface-muted) !important; }
 [class*='border-slate-'], [class*='border-indigo-'] { border-color: var(--border) !important; }
@@ -62,7 +77,7 @@
 [class~='text-slate-100'], [class~='text-slate-200'], [class~='text-white'] { color: var(--text) !important; }
 [class*='hover:bg-slate-'] :hover, [class*='hover:bg-slate-']:hover { background-color: var(--surface) !important; }
 [class*='text-indigo-'] { color: var(--primary) !important; }
-[class*='bg-indigo-'][class*='/10'], [class*='bg-indigo-'][class*='/20'] { background-color: color-mix(in srgb, var(--primary) 12%, transparent) !important; }
+[class*='bg-indigo-'][class*='/10'], [class*='bg-indigo-'][class*='/20'] { background-color: var(--primary-soft) !important; }
 [class~='bg-indigo-600'], [class~='bg-indigo-500'] { background-color: var(--primary) !important; }
 [class*='hover:bg-indigo-']:hover { background-color: var(--primary-hover) !important; }
 [class*='text-purple-'], [class*='text-pink-'] { color: var(--accent) !important; }

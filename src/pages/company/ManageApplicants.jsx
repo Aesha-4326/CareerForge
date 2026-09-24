@@ -13,6 +13,7 @@ import {
   XCircle
 } from 'lucide-react';
 import React, { useState } from 'react';
+import { API_URL } from '../../utils/api';
 
 export default function ManageApplicants({ applications, setApplications }) {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -25,7 +26,7 @@ export default function ManageApplicants({ applications, setApplications }) {
     try {
       const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
       if (savedUser.token) {
-        await fetch(`http://localhost:5000/api/jobs/applications/${appId}`, {
+        await fetch(`${API_URL}/api/jobs/applications/${appId}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -52,7 +53,7 @@ export default function ManageApplicants({ applications, setApplications }) {
     try {
       const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
       if (savedUser.token) {
-        await fetch(`http://localhost:5000/api/jobs/applications/${scheduleModalApp.id}`, {
+        await fetch(`${API_URL}/api/jobs/applications/${scheduleModalApp.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

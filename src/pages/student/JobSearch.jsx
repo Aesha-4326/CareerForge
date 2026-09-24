@@ -16,6 +16,7 @@ import {
   Award
 } from 'lucide-react';
 import { calculateJobMatch } from '../../utils/aiServices';
+import { API_URL } from '../../utils/api';
 
 export default function JobSearch({ student, jobs, applications, setApplications }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,7 +37,8 @@ export default function JobSearch({ student, jobs, applications, setApplications
   });
 
   const handleApplyJob = async (job) => {
-    const isAlreadyApplied = applications.some(a => a.jobId === job.id);
+    const jobId = String(job._id || job.id);
+    const isAlreadyApplied = applications.some((application) => String(application.jobId) === jobId);
     if (isAlreadyApplied) {
       setAppliedSuccessMsg(`You have already applied for ${job.title} at ${job.company}!`);
       setTimeout(() => setAppliedSuccessMsg(null), 3000);
@@ -47,7 +49,7 @@ export default function JobSearch({ student, jobs, applications, setApplications
 
     const newApp = {
       id: `app-${Date.now()}`,
-      jobId: job.id,
+      jobId,
       company: job.company,
       title: job.title,
       appliedDate: new Date().toISOString().split('T')[0],
@@ -61,20 +63,30 @@ export default function JobSearch({ student, jobs, applications, setApplications
     try {
       const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
       if (savedUser.token) {
-        await fetch("http://localhost:5000/api/jobs/apply", {
+        const response = await fetch(`${API_URL}/api/jobs/apply`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${savedUser.token}`
           },
-          body: JSON.stringify({ jobId: job.id, matchScore })
+          body: JSON.stringify({ jobId, matchScore })
         });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Unable to submit application.');
+        const savedApplication = data.application;
+        setApplications((currentApplications) => [{
+          ...savedApplication,
+          id: savedApplication._id || savedApplication.id,
+          jobId: String(savedApplication.jobId)
+        }, ...currentApplications]);
+      } else {
+        setApplications((currentApplications) => [newApp, ...currentApplications]);
       }
-    } catch {
-      // Backend offline, fallback to local state
+    } catch (error) {
+      setAppliedSuccessMsg(error.message || 'Unable to submit application. Please try again.');
+      setTimeout(() => setAppliedSuccessMsg(null), 4000);
+      return;
     }
-
-    setApplications([newApp, ...applications]);
     setAppliedSuccessMsg(`🎉 Successfully applied for ${job.title} at ${job.company}! Recruiter will review your ATS score.`);
     setSelectedJobModal(null);
     setTimeout(() => setAppliedSuccessMsg(null), 4000);

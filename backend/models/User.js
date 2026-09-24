@@ -31,8 +31,20 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-      minlength: 6
+      minlength: 8
     },
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false
+    },
+    emailVerificationTokenHash: String,
+    emailVerificationExpiresAt: Date,
+    passwordResetTokenHash: String,
+    passwordResetExpiresAt: Date,
     role: {
       type: String,
       enum: ["student", "company", "admin"],
@@ -41,6 +53,10 @@ const userSchema = new mongoose.Schema(
     rollNo: {
       type: String,
       default: "CS2026-084"
+    },
+    course: {
+      type: String,
+      default: "B.Tech"
     },
     branch: {
       type: String,
@@ -96,5 +112,7 @@ const userSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+userSchema.index({ email: 1 }, { unique: true });
 
 module.exports = mongoose.model("User", userSchema);

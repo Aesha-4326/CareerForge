@@ -1,29 +1,35 @@
 import { AuthProvider, useAuth } from './context/AuthContext';
 // Data & Utils
 import { INITIAL_APPLICATIONS, INITIAL_JOBS, INITIAL_STUDENT_PROFILE } from './data/mockData';
-import React, { useEffect, useState } from 'react';
-
-// Admin Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import ApplicationTracker from './pages/student/ApplicationTracker';
-import AuthPage from './pages/auth/AuthPage';
-import CareerGuidance from './pages/student/CareerGuidance';
-// Company Pages
-import CompanyDashboard from './pages/company/CompanyDashboard';
-import DsaPractice from './pages/student/DsaPractice';
-import JobSearch from './pages/student/JobSearch';
-import ManageApplicants from './pages/company/ManageApplicants';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import Navbar from './components/Navbar';
-import PlacementDrives from './pages/admin/PlacementDrives';
-import PostJob from './pages/company/PostJob';
-import ResumeAnalyzer from './pages/student/ResumeAnalyzer';
 import Sidebar from './components/Sidebar';
-import SkillsCertifications from './pages/student/SkillsCertifications';
-// Student Pages
-import StudentDashboard from './pages/student/StudentDashboard';
-import StudentManagement from './pages/admin/StudentManagement';
+import { API_URL } from './utils/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const AuthPage = lazy(() => import('./pages/auth/AuthPage'));
+const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
+const ResumeAnalyzer = lazy(() => import('./pages/student/ResumeAnalyzer'));
+const JobSearch = lazy(() => import('./pages/student/JobSearch'));
+const CareerGuidance = lazy(() => import('./pages/student/CareerGuidance'));
+const DsaPractice = lazy(() => import('./pages/student/DsaPractice'));
+const ApplicationTracker = lazy(() => import('./pages/student/ApplicationTracker'));
+const SkillsCertifications = lazy(() => import('./pages/student/SkillsCertifications'));
+const CompanyDashboard = lazy(() => import('./pages/company/CompanyDashboard'));
+const PostJob = lazy(() => import('./pages/company/PostJob'));
+const ManageApplicants = lazy(() => import('./pages/company/ManageApplicants'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const StudentManagement = lazy(() => import('./pages/admin/StudentManagement'));
+const PlacementDrives = lazy(() => import('./pages/admin/PlacementDrives'));
+
+function PageLoader() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-live="polite">
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-muted)]">
+        Loading workspace…
+      </div>
+    </div>
+  );
+}
 
 function MainContent() {
   const { user, isAuthenticated } = useAuth();
@@ -50,7 +56,7 @@ function MainContent() {
         const res = await fetch(`${API_URL}/api/jobs`);
         const data = await res.json();
         if (res.ok && data.jobs && data.jobs.length > 0) {
-          setJobs(data.jobs);
+          setJobs(data.jobs.map((job) => ({ ...job, id: job._id || job.id })));
         }
       } catch {
         // Backend offline, keep local initial jobs
@@ -73,7 +79,11 @@ function MainContent() {
         });
         const data = await res.json();
         if (isCurrentUser && res.ok && Array.isArray(data.applications)) {
-          setApplications(data.applications);
+          setApplications(data.applications.map((application) => ({
+            ...application,
+            id: application._id || application.id,
+            jobId: String(application.jobId)
+          })));
         }
       } catch {
         // Keep the list empty when the scoped API is unavailable.
@@ -109,7 +119,7 @@ function MainContent() {
       if (user && user.role === 'student') {
         if (user.token) {
           try {
-            const res = await fetch("http://localhost:5000/api/student/profile", {
+            const res = await fetch(`${API_URL}/api/student/profile`, {
               headers: { "Authorization": `Bearer ${user.token}` }
             });
             const data = await res.json();
@@ -126,6 +136,7 @@ function MainContent() {
           name: user.name || prev.name,
           email: user.email || prev.email,
           rollNo: user.rollNo || prev.rollNo,
+          course: user.course || prev.course,
           branch: user.branch || prev.branch
         }));
       }
@@ -135,7 +146,7 @@ function MainContent() {
 
   // If user is not authenticated, render the Auth login/register page
   if (!isAuthenticated) {
-    return <AuthPage />;
+    return <Suspense fallback={<PageLoader />}><AuthPage /></Suspense>;
   }
 
   const activeRole = user.role;
@@ -211,7 +222,7 @@ function MainContent() {
 
         {/* Protected Dynamic Main Workspace */}
         <main className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full overflow-x-hidden">
-          {renderContent()}
+          <Suspense fallback={<PageLoader />}>{renderContent()}</Suspense>
         </main>
       </div>
     </div>
