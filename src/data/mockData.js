@@ -11,7 +11,7 @@ export const INITIAL_STUDENT_PROFILE = {
   location: "Surat, India",
   github: "github.com/profilename",
   linkedin: "linkedin.com/in/profilename",
-  atsScore: 88,
+  atsScore: null,
   skills: [
     "Java", "Spring Boot", "React.js", "MySQL", "JavaScript", 
     "Data Structures & Algorithms", "Git", "REST APIs", "Tailwind CSS"

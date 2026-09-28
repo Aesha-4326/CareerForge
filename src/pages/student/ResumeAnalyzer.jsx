@@ -12,13 +12,13 @@ import {
   RefreshCw,
   Sparkles,
   Target,
+  Trash2,
   UploadCloud,
   Zap
 } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 
 import { API_URL } from '../../utils/api';
-import { analyzeResumeContent } from '../../utils/aiServices';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useAuth } from '../../context/AuthContext';
 
@@ -30,15 +30,38 @@ export default function ResumeAnalyzer({ setStudent }) {
   const [targetJobDescription, setTargetJobDescription] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [fileName, setFileName] = useState("No resume selected");
+  const [fileName, setFileName] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
   const fileInputRef = useRef(null);
-  const displayScore = analysisResult ? Math.min(80, analysisResult.score) : 0;
+  const hasResume = Boolean(resumeText.trim() && fileName);
+  const displayScore = analysisResult ? Math.min(89, Math.max(0, analysisResult.score)) : null;
 
-  const handleNewResume = () => {
-    setAnalysisResult(null);
-    setResumeText('');
-    setFileName('No resume selected');
+  const handleChooseResume = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleDeleteResume = async () => {
+    if (!user?.token) return;
+    try {
+      const response = await fetch(`${API_URL}/api/resume/latest`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Unable to delete resume.');
+      setAnalysisResult(null);
+      setResumeText('');
+      setTargetJobDescription('');
+      setFileName('');
+      setIsSaved(false);
+      setSaveMessage('');
+      setStudent(prev => ({ ...prev, atsScore: null }));
+    } catch (error) {
+      window.alert(error instanceof TypeError
+        ? 'Cannot reach the backend. Start it with `npm start` from the backend folder, then try deleting again.'
+        : error.message || 'Unable to delete resume.');
+    }
   };
 
   const readResumeFile = async (file) => {
@@ -53,8 +76,6 @@ export default function ResumeAnalyzer({ setStudent }) {
       window.alert('Please choose a PDF or plain text resume file (.pdf, .txt, .md, or .text).');
       return;
     }
-
-    setFileName(file.name);
 
     if (isPdf) {
       try {
@@ -73,8 +94,11 @@ export default function ResumeAnalyzer({ setStudent }) {
           return;
         }
 
+        setFileName(file.name);
         setResumeText(extractedText);
-        await handleAnalyze(extractedText, file.name);
+        setAnalysisResult(null);
+        setIsSaved(false);
+        setSaveMessage('Resume uploaded. Run the ATS check, then save it separately to use it for applications.');
       } catch (error) {
         console.error('PDF resume extraction error:', error);
         window.alert('Could not read this PDF. Please try another PDF or paste the resume text.');
@@ -86,59 +110,102 @@ export default function ResumeAnalyzer({ setStudent }) {
     reader.onload = (event) => {
       const text = event.target?.result;
       if (typeof text === 'string') {
+        if (!text.trim()) {
+          window.alert('This file is empty. Please choose another resume.');
+          return;
+        }
+        setFileName(file.name);
         setResumeText(text);
-        handleAnalyze(text, file.name);
+        setAnalysisResult(null);
+        setIsSaved(false);
+        setSaveMessage('Resume uploaded. Run the ATS check, then save it separately to use it for applications.');
       }
     };
     reader.readAsText(file);
   };
 
-  const handleAnalyze = async (customText = null, customFile = null) => {
-    const textToAnalyze = customText || resumeText;
-    const currentFile = customFile || fileName;
+  const handleAnalyze = async () => {
+    if (!resumeText.trim()) return;
+    if (!user?.token) {
+      setSaveMessage('Please sign in to check your resume with ATS.');
+      return;
+    }
 
     setIsAnalyzing(true);
-
-    if (user && user.token) {
-      try {
-        const res = await fetch(`${API_URL}/api/resume/analyze`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${user.token}`
-          },
-          body: JSON.stringify({
-            resumeText: textToAnalyze,
-            targetJobDescription,
-            fileName: currentFile
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Resume analysis failed');
-        if (data.analysisResult) {
-          const resultDoc = data.analysisResult;
-          const formattedResult = {
-            score: resultDoc.atsScore,
-            keywordMatchRate: resultDoc.keywordMatchRate,
-            foundKeywords: resultDoc.foundKeywords,
-            missingKeywords: resultDoc.missingKeywords,
-            actionVerbsScore: resultDoc.actionVerbsScore,
-            sectionChecks: resultDoc.sectionChecks,
-            suggestions: resultDoc.suggestions
-          };
-          setAnalysisResult(formattedResult);
-          setStudent(prev => ({ ...prev, atsScore: resultDoc.atsScore }));
-        }
-      } catch (err) {
-        console.error("Resume analysis API error:", err);
-        setAnalysisResult(analyzeResumeContent(textToAnalyze, targetJobDescription));
-      }
+    setSaveMessage('');
+    try {
+      const response = await fetch(`${API_URL}/api/resume/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ resumeText, targetJobDescription, fileName })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Resume analysis failed.');
+      const result = data.analysisResult;
+      setAnalysisResult({
+        score: result.atsScore,
+        keywordMatchRate: result.keywordMatchRate,
+        foundKeywords: result.foundKeywords || [],
+        missingKeywords: result.missingKeywords || [],
+        actionVerbsScore: result.actionVerbsScore,
+        sectionChecks: result.sectionChecks || [],
+        suggestions: result.suggestions || []
+      });
+      setIsSaved(false);
+      setSaveMessage('ATS check complete. Save this resume separately to use it for applications.');
+    } catch (error) {
+      console.error('Resume analysis API error:', error);
+      setAnalysisResult(null);
+      setSaveMessage(error instanceof TypeError
+        ? 'Cannot reach the backend. Start the backend server, then try again.'
+        : error.message || 'Resume analysis failed. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
     }
+  };
 
-    if (!user?.token) {
-      setAnalysisResult(analyzeResumeContent(textToAnalyze, targetJobDescription));
+  const handleSaveResume = async () => {
+    if (!resumeText.trim() || !analysisResult || !user?.token) return;
+    setIsAnalyzing(true);
+    setSaveMessage('');
+    try {
+      const response = await fetch(`${API_URL}/api/resume/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`
+        },
+        body: JSON.stringify({
+          resumeText,
+          targetJobDescription,
+          fileName,
+          analysisResult: {
+            atsScore: analysisResult.score,
+            keywordMatchRate: analysisResult.keywordMatchRate,
+            foundKeywords: analysisResult.foundKeywords,
+            missingKeywords: analysisResult.missingKeywords,
+            actionVerbsScore: analysisResult.actionVerbsScore,
+            sectionChecks: analysisResult.sectionChecks,
+            suggestions: analysisResult.suggestions
+          }
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not save resume.');
+      setIsSaved(true);
+      setSaveMessage('Resume saved successfully. This resume will be attached to applications.');
+      setStudent(prev => ({ ...prev, atsScore: analysisResult.score }));
+    } catch (error) {
+      console.error('Resume save API error:', error);
+      setSaveMessage(error instanceof TypeError
+        ? 'Cannot reach the backend. Start the backend server, then try again.'
+        : error.message || 'Could not save resume. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
     }
-    setIsAnalyzing(false);
   };
 
   // Load latest persisted ATS resume analysis from MongoDB or trigger initial AI analysis
@@ -153,7 +220,7 @@ export default function ResumeAnalyzer({ setStudent }) {
           if (res.ok && data.analysisResult) {
             setResumeText(data.analysisResult.resumeText);
             setTargetJobDescription(data.analysisResult.targetJobDescription || "");
-            setFileName(data.analysisResult.fileName || "resume.txt");
+            setFileName(data.analysisResult.fileName || 'resume.txt');
             setAnalysisResult({
               score: data.analysisResult.atsScore,
               keywordMatchRate: data.analysisResult.keywordMatchRate,
@@ -163,14 +230,20 @@ export default function ResumeAnalyzer({ setStudent }) {
               sectionChecks: data.analysisResult.sectionChecks,
               suggestions: data.analysisResult.suggestions
             });
+            setIsSaved(true);
+            setSaveMessage('Saved resume loaded. It will be attached to your applications.');
             setStudent(prev => ({ ...prev, atsScore: data.analysisResult.atsScore }));
           } else {
             setResumeText('');
+            setFileName('');
             setAnalysisResult(null);
+            setIsSaved(false);
           }
         } catch {
           setResumeText('');
+          setFileName('');
           setAnalysisResult(null);
+          setIsSaved(false);
         }
       }
     }
@@ -196,7 +269,7 @@ export default function ResumeAnalyzer({ setStudent }) {
         <div className="flex flex-wrap gap-2 shrink-0">
           <button
             type="button"
-            onClick={handleNewResume}
+            onClick={handleChooseResume}
             disabled={isAnalyzing}
             className="px-4 py-2.5 rounded-xl border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 font-bold text-xs flex items-center gap-2 transition-all"
           >
@@ -214,9 +287,17 @@ export default function ResumeAnalyzer({ setStudent }) {
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" /> Re-Run AI ATS Check
+                <Sparkles className="w-4 h-4" /> Check ATS Score
               </>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveResume}
+            disabled={isAnalyzing || !analysisResult || isSaved}
+            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all"
+          >
+            <CheckCircle2 className="w-4 h-4" /> {isSaved ? 'Resume Saved' : 'Save Resume'}
           </button>
         </div>
       </div>
@@ -244,16 +325,16 @@ export default function ResumeAnalyzer({ setStudent }) {
                 readResumeFile(event.dataTransfer.files?.[0]);
               }}
             >
-              <UploadCloud className="w-6 h-6 text-indigo-400 mx-auto mb-1" />
+                <UploadCloud className="w-6 h-6 text-indigo-400 mx-auto mb-1" />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="text-xs font-semibold text-slate-300 hover:text-indigo-300"
               >
-                Click to choose a resume file
+                {hasResume ? 'Choose a different resume file' : 'Click to choose a resume file'}
               </button>
               <p className="text-xs font-semibold text-slate-300">or drag and drop it here</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Automatically parses text and calculates ATS score</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Upload a file, check its ATS score, then save it for applications</p>
               <input 
                 ref={fileInputRef}
                 type="file" 
@@ -266,31 +347,39 @@ export default function ResumeAnalyzer({ setStudent }) {
               />
             </div>
 
-            {/* Textarea */}
-            <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 block">Extracted Resume Text</label>
-              <textarea
-                rows={12}
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 leading-relaxed resize-none"
-                placeholder="Paste your resume text here..."
-              ></textarea>
-            </div>
+            {saveMessage && <p className={`text-xs ${isSaved ? 'text-emerald-400' : 'text-amber-400'}`} role="status">{saveMessage}</p>}
 
-            {/* Optional JD Matching Input */}
-            <div>
-              <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-indigo-400" /> Target Job Description (Optional)
-              </label>
-              <input
-                type="text"
-                value={targetJobDescription}
-                onChange={(e) => setTargetJobDescription(e.target.value)}
-                placeholder="e.g. SDE-1 at Microsoft requiring Java, Spring Boot, MySQL..."
-                className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
+            {hasResume && (
+              <>
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label className="text-xs font-medium text-slate-400">Resume Text Preview</label>
+                    <button type="button" onClick={handleDeleteResume} className="flex items-center gap-1 text-xs font-semibold text-rose-400 hover:text-rose-300">
+                      <Trash2 className="h-3.5 w-3.5" /> Delete resume
+                    </button>
+                  </div>
+                  <textarea
+                    rows={12}
+                    value={resumeText}
+                    readOnly
+                    className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono focus:outline-none leading-relaxed resize-none"
+                  ></textarea>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-indigo-400" /> Target Job Description (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={targetJobDescription}
+                    onChange={(e) => setTargetJobDescription(e.target.value)}
+                    placeholder="e.g. SDE-1 at Microsoft requiring Java, Spring Boot, MySQL..."
+                    className="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -298,17 +387,17 @@ export default function ResumeAnalyzer({ setStudent }) {
         <div className="lg:col-span-6 space-y-4">
           {!analysisResult ? (
             <div className="glass-panel p-12 rounded-2xl border border-slate-800 text-center space-y-4">
-              <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
-              <h3 className="text-base font-bold text-white">Analyzing Resume...</h3>
+              <UploadCloud className="w-8 h-8 text-indigo-400 mx-auto" />
+              <h3 className="text-base font-bold text-white">{hasResume ? 'Check your resume to see ATS results' : 'Upload your resume to see ATS results'}</h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto">
-                Evaluating candidate text against recruiter search keywords, impact action verbs, and mandatory section structures.
+                Check your ATS score first, then use Save Resume. Only a saved resume is attached when you apply.
               </p>
             </div>
           ) : (
             <>
               {/* ATS Score Card */}
               <div className="glass-panel p-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="flex items-center justify-center">
                   
                   {/* Circular Gauge Simulation */}
                   <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
@@ -321,7 +410,7 @@ export default function ResumeAnalyzer({ setStudent }) {
                         stroke="var(--primary)" 
                         strokeWidth="10" 
                         strokeDasharray={364}
-                        strokeDashoffset={364 - (364 * displayScore) / 80}
+                        strokeDashoffset={364 - (364 * displayScore) / 89}
                         strokeLinecap="round"
                         className="transition-all duration-1000 ease-out" 
                         fill="transparent" 
@@ -330,25 +419,6 @@ export default function ResumeAnalyzer({ setStudent }) {
                     <div className="absolute text-center">
                       <span className="text-3xl font-black text-white">{displayScore}%</span>
                       <p className="text-[10px] text-indigo-300 font-semibold uppercase tracking-wider">ATS Score</p>
-                    </div>
-                  </div>
-
-                  {/* Quick Metrics */}
-                  <div className="space-y-3 w-full">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Technical Keyword Fit</span>
-                      <span className="font-bold text-emerald-400">{analysisResult.keywordMatchRate}</span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-emerald-400 h-full rounded-full" style={{ width: analysisResult.keywordMatchRate }}></div>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">Action Verb Power</span>
-                      <span className="font-bold text-indigo-400">{analysisResult.actionVerbsScore}</span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-indigo-400 h-full rounded-full" style={{ width: analysisResult.actionVerbsScore }}></div>
                     </div>
                   </div>
 
@@ -398,7 +468,7 @@ export default function ResumeAnalyzer({ setStudent }) {
 
             <div className="pt-2 border-t border-slate-800 space-y-2">
               <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-indigo-400" /> AI Suggestions to Reach 80% Score
+                <Zap className="w-3.5 h-3.5 text-indigo-400" /> AI Suggestions to Improve Your ATS Score
               </h4>
               {analysisResult.suggestions.map((s, i) => (
                 <div key={i} className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs space-y-0.5">

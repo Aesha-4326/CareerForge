@@ -2,6 +2,8 @@ const Job = require("../models/Job");
 const Application = require("../models/Application");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const Resume = require("../models/Resume");
+const Company = require("../models/Company");
 
 const normalizedBranch = (branch = "") => branch.toLowerCase().replace(/[^a-z]/g, "");
 const isEligibleStudent = (student, job) => {
@@ -18,11 +20,44 @@ const isEligibleStudent = (student, job) => {
 // 1. Get all jobs
 const getJobs = async (req, res) => {
   try {
+    const drives = await Company.find({ status: { $ne: "Completed" } });
+    for (const drive of drives) {
+      if (!drive.jobId) {
+        const driveJob = await Job.create({
+          company: drive.companyName,
+          logo: drive.logo,
+          title: drive.driveTitle,
+          roleCategory: drive.jobRole,
+          location: "Campus Drive",
+          workMode: "On-site",
+          ctc: drive.ctc,
+          minCgpa: drive.minCgpa,
+          allowedBranches: drive.allowedBranches,
+          deadline: drive.driveDate,
+          description: `${drive.driveTitle} campus recruitment drive by ${drive.companyName}.`,
+          rounds: drive.rounds,
+          postedBy: drive.createdBy
+        });
+        drive.jobId = driveJob._id;
+        await drive.save();
+      }
+    }
+
     const jobs = await Job.find().sort({ createdAt: -1 });
     res.status(200).json({ success: true, count: jobs.length, jobs });
   } catch (error) {
     console.error("Error fetching jobs:", error);
     res.status(500).json({ message: "Failed to fetch jobs" });
+  }
+};
+
+const getMyJobs = async (req, res) => {
+  try {
+    const jobs = await Job.find({ postedBy: req.user.userId }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, count: jobs.length, jobs });
+  } catch (error) {
+    console.error("Error fetching recruiter jobs:", error);
+    res.status(500).json({ message: "Failed to fetch your job postings" });
   }
 };
 
@@ -35,9 +70,12 @@ const createJob = async (req, res) => {
       return res.status(400).json({ message: "Please provide all required job fields." });
     }
 
+    const owner = req.user ? await User.findById(req.user.userId).select("companyName name") : null;
+    const ownerCompanyName = owner?.companyName || owner?.name || company;
+
     const job = await Job.create({
       title,
-      company,
+      company: ownerCompanyName,
       type: type || "Job",
       roleCategory: roleCategory || "Full Stack Developer",
       location,
@@ -93,6 +131,13 @@ const applyJob = async (req, res) => {
       return res.status(409).json({ message: "You have already applied for this opportunity." });
     }
 
+    const latestResume = await Resume.findOne({ studentId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .select("resumeText fileName atsScore keywordMatchRate createdAt");
+    if (!latestResume) {
+      return res.status(400).json({ message: "Please save your resume in Resume Analyzer before applying." });
+    }
+
     // Increment applicants count
     job.applicantsCount += 1;
     await job.save();
@@ -100,6 +145,7 @@ const applyJob = async (req, res) => {
     const application = await Application.create({
       jobId: job._id,
       studentId: req.user.userId,
+      resumeId: latestResume?._id || null,
       studentName: req.user.name || "Student Candidate",
       company: job.company,
       title: job.title,
@@ -109,15 +155,30 @@ const applyJob = async (req, res) => {
       location: job.location
     });
 
-    if (job.postedBy) {
-      await Notification.create({
-        recipientId: job.postedBy,
+    const escapedCompanyName = job.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const [administrators, companyRecruiters] = await Promise.all([
+      User.find({ role: "admin", isActive: true }).select("_id"),
+      User.find({
+        role: "company",
+        isActive: true,
+        companyName: { $regex: `^${escapedCompanyName}$`, $options: "i" }
+      }).select("_id")
+    ]);
+    const recipientIds = [
+      ...(job.postedBy ? [job.postedBy] : []),
+      ...companyRecruiters.map((recruiter) => recruiter._id),
+      ...administrators.map((administrator) => administrator._id)
+    ].filter((recipientId, index, ids) => ids.findIndex((id) => String(id) === String(recipientId)) === index);
+
+    if (recipientIds.length) {
+      await Notification.insertMany(recipientIds.map((recipientId) => ({
+        recipientId,
         title: `New application for ${job.title}`,
         message: `${application.studentName} applied for ${job.title} at ${job.company}.`,
         type: "application",
         link: "applicants",
         jobId: job._id
-      });
+      })));
     }
 
     res.status(201).json({ success: true, message: "Application submitted successfully!", application });
@@ -132,12 +193,18 @@ const getApplications = async (req, res) => {
   try {
     let applications;
     if (req.user.role === "student") {
-      applications = await Application.find({ studentId: req.user.userId }).sort({ createdAt: -1 });
+      applications = await Application.find({ studentId: req.user.userId }).populate("resumeId").sort({ createdAt: -1 });
     } else if (req.user.role === "company") {
       const companyJobs = await Job.find({ postedBy: req.user.userId }).select("_id");
-      applications = await Application.find({ jobId: { $in: companyJobs.map(job => job._id) } }).sort({ createdAt: -1 });
+      applications = await Application.find({ jobId: { $in: companyJobs.map(job => job._id) } })
+        .populate("resumeId")
+        .sort({ createdAt: -1 });
     } else if (req.user.role === "admin") {
-      applications = await Application.find().sort({ createdAt: -1 });
+      applications = await Application.find()
+        .populate("resumeId")
+        .populate("studentId", "name email rollNo branch")
+        .populate("jobId", "title company location")
+        .sort({ createdAt: -1 });
     } else {
       return res.status(403).json({ message: "Access denied for this role" });
     }
@@ -188,6 +255,7 @@ const updateApplicationStatus = async (req, res) => {
 
 module.exports = {
   getJobs,
+  getMyJobs,
   createJob,
   applyJob,
   getApplications,

@@ -100,7 +100,7 @@ const userSchema = new mongoose.Schema(
     },
     atsScore: {
       type: Number,
-      default: 88
+      default: null
     },
     skills: [{
       type: String

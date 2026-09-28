@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Resume = require("../models/Resume");
 const { sendEmail } = require("../utils/email");
 const { createSecureToken, hashToken } = require("../utils/tokens");
 
@@ -81,6 +82,7 @@ const registerUser = async (req, res) => {
     });
 
     const token = createAuthToken(user);
+    const latestResume = await Resume.findOne({ studentId: user._id }).sort({ createdAt: -1 }).select("atsScore");
 
     // 6. Send response
     res.status(201).json({
@@ -97,7 +99,7 @@ const registerUser = async (req, res) => {
         companyName: user.companyName,
         title: user.title,
         cgpa: user.cgpa,
-        atsScore: user.atsScore,
+        atsScore: latestResume?.atsScore ?? null,
         skills: user.skills
       }
     });
@@ -147,6 +149,7 @@ const loginUser = async (req, res) => {
     }
 
     const token = createAuthToken(user);
+    const latestResume = await Resume.findOne({ studentId: user._id }).sort({ createdAt: -1 }).select("atsScore");
 
     // 5. Send response
     res.status(200).json({
@@ -163,7 +166,7 @@ const loginUser = async (req, res) => {
         companyName: user.companyName,
         title: user.title,
         cgpa: user.cgpa,
-        atsScore: user.atsScore,
+        atsScore: latestResume?.atsScore ?? null,
         skills: user.skills || []
       }
     });

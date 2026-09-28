@@ -1,19 +1,19 @@
+import {
+  Award,
+  BarChart3,
+  Briefcase,
+  Calendar,
+  Code,
+  Compass,
+  FileText,
+  Kanban,
+  LayoutDashboard,
+  PlusCircle,
+  Users
+} from 'lucide-react';
+
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Briefcase, 
-  Compass, 
-  Code, 
-  Kanban, 
-  Award, 
-  PlusCircle, 
-  Users, 
-  BarChart3, 
-  Building, 
-  Calendar
-} from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, isMobileOpen, setIsMobileOpen }) {
   const { user } = useAuth();
@@ -38,8 +38,7 @@ export default function Sidebar({ activeTab, setActiveTab, isMobileOpen, setIsMo
   const adminNavItems = [
     { id: 'admin-dashboard', label: 'Placement Analytics', icon: BarChart3 },
     { id: 'student-mgmt', label: 'Manage Students', icon: Users },
-    { id: 'drives-mgmt', label: 'Drive Management', icon: Calendar },
-    { id: 'companies-mgmt', label: 'Partner Companies', icon: Building }
+    { id: 'drives-mgmt', label: 'Drive Management', icon: Calendar }
   ];
 
   const navItems = activeRole === 'student' 
@@ -66,10 +65,10 @@ export default function Sidebar({ activeTab, setActiveTab, isMobileOpen, setIsMo
                 setActiveTab(item.id);
                 if (setIsMobileOpen) setIsMobileOpen(false);
               }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:shadow-slate-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70 ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  ? 'bg-slate-800/80 text-white border-blue-500 shadow-md shadow-blue-500/10 font-semibold'
+                  : 'border-transparent text-slate-400 hover:text-slate-300 hover:bg-slate-800/70'
               }`}
             >
               <div className="flex items-center space-x-3">
@@ -93,7 +92,7 @@ export default function Sidebar({ activeTab, setActiveTab, isMobileOpen, setIsMo
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="w-64 glass-panel border-r border-slate-800/80 min-h-[calc(100vh-61px)] p-4 hidden md:block shrink-0">
+      <aside className="sticky top-[61px] h-[calc(100vh-61px)] w-64 glass-panel border-r border-slate-800/80 p-4 hidden md:block shrink-0 self-start overflow-y-auto">
         {renderNavList()}
       </aside>
 

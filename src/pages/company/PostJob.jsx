@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
-import { 
-  PlusCircle, 
-  Sparkles, 
-  Building2, 
-  DollarSign, 
-  MapPin, 
-  CheckCircle2, 
+import {
+  Building2,
+  CheckCircle2,
+  DollarSign,
+  MapPin,
+  PlusCircle,
   Send,
+  Sparkles,
   Zap
 } from 'lucide-react';
+import React, { useState } from 'react';
+
 import { API_URL } from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function PostJob({ jobs, setJobs, setActiveTab }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: 'Backend Software Engineer',
     type: 'Job',
@@ -39,8 +42,8 @@ export default function PostJob({ jobs, setJobs, setActiveTab }) {
     e.preventDefault();
     const newJob = {
       id: `job-${Date.now()}`,
-      company: "Google",
-      logo: "https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg",
+      company: user?.companyName || user?.name || "Recruiter Company",
+      logo: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80",
       title: formData.title,
       type: formData.type,
       roleCategory: formData.roleCategory,
@@ -58,23 +61,27 @@ export default function PostJob({ jobs, setJobs, setActiveTab }) {
       rounds: ["Online Coding Test", "Technical Interview I", "HR Round"]
     };
 
+    let jobToAdd = newJob;
     try {
-      const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
-      if (savedUser.token) {
-        await fetch(`${API_URL}/api/jobs`, {
+      if (user?.token) {
+        const response = await fetch(`${API_URL}/api/jobs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${savedUser.token}`
+            "Authorization": `Bearer ${user.token}`
           },
           body: JSON.stringify(newJob)
         });
+        const data = await response.json();
+        if (response.ok && data.job) {
+          jobToAdd = { ...data.job, id: data.job._id || data.job.id };
+        }
       }
     } catch {
       // Backend offline, fallback to local state
     }
 
-    setJobs([newJob, ...jobs]);
+    setJobs([jobToAdd, ...jobs]);
     setSuccessToast(true);
     setTimeout(() => {
       setSuccessToast(false);

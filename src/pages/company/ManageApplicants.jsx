@@ -13,6 +13,7 @@ import {
   XCircle
 } from 'lucide-react';
 import React, { useState } from 'react';
+
 import { API_URL } from '../../utils/api';
 
 export default function ManageApplicants({ applications, setApplications }) {
@@ -134,11 +135,13 @@ export default function ManageApplicants({ applications, setApplications }) {
                   <td className="p-3.5">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 font-bold text-xs flex items-center justify-center">
-                        AV
+                        {(app.studentName || 'Candidate').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <span className="font-bold text-white block">Aesha Narola</span>
-                        <span className="text-[10px] text-slate-400">CS2026-084 • CGPA: 8.85</span>
+                        <span className="font-bold text-white block">{app.studentName || 'Candidate'}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {app.resumeId ? `${app.resumeId.fileName || 'Resume'} • ATS: ${app.resumeId.atsScore ?? 'N/A'}` : 'No resume attached'}
+                        </span>
                       </div>
                     </div>
                   </td>
@@ -199,8 +202,10 @@ export default function ManageApplicants({ applications, setApplications }) {
           <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-700 p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between border-b border-slate-800 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-white">Aesha Narola - Candidate Profile</h3>
-                <p className="text-xs text-slate-400">Roll No: CS2026-084 • Branch: Computer Science & Engineering • CGPA: 8.85</p>
+                <h3 className="text-lg font-bold text-white">{selectedCandidate.studentName || 'Candidate'} - Resume</h3>
+                <p className="text-xs text-slate-400">
+                  {selectedCandidate.resumeId ? `${selectedCandidate.resumeId.fileName || 'Resume'} • ATS Score: ${selectedCandidate.resumeId.atsScore ?? 'N/A'}` : 'No resume was attached when this application was submitted.'}
+                </p>
               </div>
               <button onClick={() => setSelectedCandidate(null)} className="text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -208,19 +213,12 @@ export default function ManageApplicants({ applications, setApplications }) {
             </div>
 
             <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs">
-              <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Verified Core Skills</h4>
-              <p className="text-slate-300 font-medium leading-relaxed">
-                Java, Spring Boot, React.js, MySQL, JavaScript, Data Structures & Algorithms, REST APIs, Microservices, Git, Tailwind CSS
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs">
-              <h4 className="font-bold text-purple-400 uppercase tracking-wider text-[11px]">Recent Capstone Projects</h4>
-              <p className="text-white font-bold">1. Smart Placement Portal (React, Node.js, MongoDB)</p>
-              <p className="text-slate-400">Centralized campus placement web application with real-time AI resume parsing engine.</p>
-
-              <p className="text-white font-bold pt-1">2. Microservices E-Commerce API (Java, Spring Boot, Redis)</p>
-              <p className="text-slate-400">High-throughput RESTful services with Spring Security OAuth2 integration.</p>
+              <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[11px]">Student Resume</h4>
+              {selectedCandidate.resumeId?.resumeText ? (
+                <pre className="whitespace-pre-wrap text-slate-300 font-medium leading-relaxed font-sans">{selectedCandidate.resumeId.resumeText}</pre>
+              ) : (
+                <p className="text-slate-400">This student had not saved a resume before applying.</p>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-800 flex justify-end">

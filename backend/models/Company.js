@@ -53,7 +53,17 @@ const companySchema = new mongoose.Schema(
     },
     rounds: [{
       type: String
-    }]
+    }],
+    jobId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Job",
+      default: null
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    }
   },
   {
     timestamps: true

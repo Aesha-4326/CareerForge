@@ -6,7 +6,9 @@ import {
   Building2, 
   Award, 
   Download, 
-  GraduationCap
+  GraduationCap,
+  Briefcase,
+  CalendarDays
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -26,6 +28,8 @@ import { API_URL } from '../../utils/api';
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(PLACEMENT_STATS);
+  const [applications, setApplications] = useState([]);
+  const [applicationsError, setApplicationsError] = useState('');
   const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#10b981', '#f59e0b'];
 
   useEffect(() => {
@@ -46,6 +50,25 @@ export default function AdminDashboard() {
     }
     loadAdminStats();
   }, [user]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadApplications() {
+      if (!user?.token) return;
+      try {
+        const response = await fetch(`${API_URL}/api/jobs/applications`, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Could not load student applications.');
+        if (isCurrent) setApplications(data.applications || []);
+      } catch (error) {
+        if (isCurrent) setApplicationsError(error.message || 'Could not load student applications.');
+      }
+    }
+    loadApplications();
+    return () => { isCurrent = false; };
+  }, [user?.token]);
 
   return (
     <div className="space-y-6">
@@ -182,6 +205,67 @@ export default function AdminDashboard() {
         </div>
 
       </div>
+
+      <section className="glass-panel rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-teal-400" /> Student Applications
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">See which company and position each student applied to.</p>
+          </div>
+          <span className="rounded-lg border border-teal-500/20 bg-teal-500/10 px-2.5 py-1 text-xs font-bold text-teal-300">
+            {applications.length} total
+          </span>
+        </div>
+
+        {applicationsError ? (
+          <p className="text-sm text-rose-400" role="alert">{applicationsError}</p>
+        ) : applications.length === 0 ? (
+          <p className="rounded-xl border border-slate-800 bg-slate-900/40 p-5 text-center text-sm text-slate-400">
+            No student applications have been submitted yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-xs text-slate-300">
+              <thead className="border-b border-slate-800 text-[10px] uppercase text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Student</th>
+                  <th className="px-3 py-3">Company</th>
+                  <th className="px-3 py-3">Position / Drive</th>
+                  <th className="px-3 py-3">Applied On</th>
+                  <th className="px-3 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80">
+                {applications.map((application) => {
+                  const student = application.studentId && typeof application.studentId === 'object' ? application.studentId : null;
+                  const job = application.jobId && typeof application.jobId === 'object' ? application.jobId : null;
+                  return (
+                    <tr key={application._id} className="hover:bg-slate-800/30">
+                      <td className="px-3 py-3">
+                        <span className="block font-semibold text-white">{student?.name || application.studentName || 'Student'}</span>
+                        <span className="text-[10px] text-slate-500">{student?.email || student?.rollNo || ''}</span>
+                      </td>
+                      <td className="px-3 py-3">{job?.company || application.company}</td>
+                      <td className="px-3 py-3">
+                        <span className="block text-slate-200">{job?.title || application.title}</span>
+                        <span className="text-[10px] text-slate-500">{job?.location || application.location || ''}</span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-slate-500" />{new Date(application.createdAt).toLocaleDateString()}</span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold text-indigo-300">{application.status}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
     </div>
   );

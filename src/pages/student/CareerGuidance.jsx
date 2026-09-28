@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  Target, 
-  CheckCircle2, 
-  AlertCircle, 
-  Layers, 
-  Code, 
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle2,
+  Code,
+  Layers,
   Lightbulb,
+  MessageCircleQuestion,
   RefreshCw,
-  BookOpen
+  Sparkles,
+  Target
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { generateCareerRoadmap } from '../../utils/aiServices';
+import React, { useState } from 'react';
+
 import { API_URL } from '../../utils/api';
+import { generateCareerRoadmap } from '../../utils/aiServices';
+import { useAuth } from '../../context/AuthContext';
 
 export default function CareerGuidance({ student }) {
   const { user } = useAuth();
   const [targetGoalInput, setTargetGoalInput] = useState("I want to become a Java Full Stack Developer.");
   const [isGenerating, setIsGenerating] = useState(false);
   const [roadmapData, setRoadmapData] = useState(null);
+  const [question, setQuestion] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+  const [careerAnswer, setCareerAnswer] = useState(null);
 
   const handleGenerateRoadmap = async (e = null, customGoal = null) => {
     if (e) e.preventDefault();
@@ -74,6 +79,36 @@ export default function CareerGuidance({ student }) {
       }
     }
     setIsGenerating(false);
+  };
+
+  const handleAskAI = async (event) => {
+    event.preventDefault();
+    if (!question.trim()) return;
+    setIsAsking(true);
+    setCareerAnswer(null);
+    try {
+      const endpoint = user?.token ? `${API_URL}/api/guidance/ask-authenticated` : `${API_URL}/api/guidance/ask`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {})
+        },
+        body: JSON.stringify({ question: question.trim(), targetGoal: targetGoalInput, currentSkills: student.skills || [] })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Unable to answer this question.');
+      setCareerAnswer(data.answer);
+    } catch (error) {
+      setCareerAnswer({
+        field: 'Career guidance',
+        answer: error.message || 'Unable to answer right now. Please try again.',
+        nextSteps: [],
+        resources: []
+      });
+    } finally {
+      setIsAsking(false);
+    }
   };
 
   // Load latest persisted AI Career Roadmap from MongoDB on mount or generate initial Gemini roadmap
@@ -283,6 +318,53 @@ export default function CareerGuidance({ student }) {
           </div>
         </>
       )}
+
+      <form onSubmit={handleAskAI} className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800 space-y-3">
+        <label className="text-xs font-bold text-slate-300 flex items-center gap-2">
+          <MessageCircleQuestion className="w-4 h-4 text-emerald-400" /> Ask about any career or learning field
+        </label>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            type="text"
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="e.g. Is cybersecurity a good career for me? How should I learn Python?"
+            className="flex-1 bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+          />
+          <button
+            type="submit"
+            disabled={isAsking || !question.trim()}
+            className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shrink-0"
+          >
+            {isAsking ? <><RefreshCw className="w-4 h-4 animate-spin" /> Thinking...</> : <><MessageCircleQuestion className="w-4 h-4" /> Ask AI</>}
+          </button>
+        </div>
+        {careerAnswer && (
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-emerald-300">{careerAnswer.field || 'Career answer'}</h3>
+              {careerAnswer.provider && <span className="text-[10px] text-slate-500">{careerAnswer.provider}</span>}
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{careerAnswer.answer}</p>
+            {careerAnswer.nextSteps?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold text-slate-300 mb-1">Next steps</h4>
+                <ul className="list-disc space-y-1 pl-5 text-xs text-slate-400">
+                  {careerAnswer.nextSteps.map((step, index) => <li key={index}>{step}</li>)}
+                </ul>
+              </div>
+            )}
+            {careerAnswer.resources?.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold text-slate-300 mb-1">Useful resources</h4>
+                <ul className="list-disc space-y-1 pl-5 text-xs text-slate-400">
+                  {careerAnswer.resources.map((resource, index) => <li key={index}>{resource}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </form>
 
     </div>
   );

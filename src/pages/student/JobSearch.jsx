@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
-import { 
-  Briefcase, 
-  Search, 
-  Filter, 
-  MapPin, 
-  DollarSign, 
-  Sparkles, 
-  Building2, 
-  Calendar, 
-  CheckCircle2, 
-  Clock, 
-  X,
+import {
+  Award,
+  Briefcase,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  Filter,
+  MapPin,
+  Search,
   Send,
+  Sparkles,
   Users,
-  Award
+  X
 } from 'lucide-react';
-import { calculateJobMatch } from '../../utils/aiServices';
+import React, { useEffect, useState } from 'react';
+
 import { API_URL } from '../../utils/api';
+import { calculateJobMatch } from '../../utils/aiServices';
 
 export default function JobSearch({ student, jobs, applications, setApplications }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +25,25 @@ export default function JobSearch({ student, jobs, applications, setApplications
   const [selectedRole, setSelectedRole] = useState('All');
   const [selectedJobModal, setSelectedJobModal] = useState(null);
   const [appliedSuccessMsg, setAppliedSuccessMsg] = useState(null);
+  const [submissionPopup, setSubmissionPopup] = useState(null);
+  const [hasSavedResume, setHasSavedResume] = useState(false);
+  const [isCheckingResume, setIsCheckingResume] = useState(true);
+
+  useEffect(() => {
+    const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
+    if (!savedUser.token) {
+      setIsCheckingResume(false);
+      return;
+    }
+
+    fetch(`${API_URL}/api/resume/latest`, {
+      headers: { Authorization: `Bearer ${savedUser.token}` }
+    })
+      .then(async (response) => ({ ok: response.ok, data: await response.json() }))
+      .then(({ ok, data }) => setHasSavedResume(Boolean(ok && data.analysisResult?.resumeText)))
+      .catch(() => setHasSavedResume(false))
+      .finally(() => setIsCheckingResume(false));
+  }, []);
 
   // Filter Jobs
   const filteredJobs = jobs.filter(job => {
@@ -37,6 +57,12 @@ export default function JobSearch({ student, jobs, applications, setApplications
   });
 
   const handleApplyJob = async (job) => {
+    if (!hasSavedResume) {
+      setAppliedSuccessMsg('Please upload and analyze your resume before applying.');
+      setTimeout(() => setAppliedSuccessMsg(null), 4000);
+      return;
+    }
+
     const jobId = String(job._id || job.id);
     const isAlreadyApplied = applications.some((application) => String(application.jobId) === jobId);
     if (isAlreadyApplied) {
@@ -46,19 +72,6 @@ export default function JobSearch({ student, jobs, applications, setApplications
     }
 
     const matchScore = calculateJobMatch(student.skills, job.skillsRequired);
-
-    const newApp = {
-      id: `app-${Date.now()}`,
-      jobId,
-      company: job.company,
-      title: job.title,
-      appliedDate: new Date().toISOString().split('T')[0],
-      status: "Applied",
-      currentRound: "Resume Screening",
-      nextStepDate: "Under Review",
-      matchScore: matchScore,
-      location: job.location
-    };
 
     try {
       const savedUser = JSON.parse(localStorage.getItem('careerforge_auth_user') || '{}');
@@ -80,20 +93,41 @@ export default function JobSearch({ student, jobs, applications, setApplications
           jobId: String(savedApplication.jobId)
         }, ...currentApplications]);
       } else {
-        setApplications((currentApplications) => [newApp, ...currentApplications]);
+        throw new Error('Please sign in again before applying.');
       }
     } catch (error) {
       setAppliedSuccessMsg(error.message || 'Unable to submit application. Please try again.');
       setTimeout(() => setAppliedSuccessMsg(null), 4000);
       return;
     }
-    setAppliedSuccessMsg(`🎉 Successfully applied for ${job.title} at ${job.company}! Recruiter will review your ATS score.`);
+    const successMessage = `Your application for ${job.title} at ${job.company} has been submitted successfully.`;
+    setAppliedSuccessMsg(successMessage);
+    setSubmissionPopup({ title: job.title, company: job.company });
     setSelectedJobModal(null);
     setTimeout(() => setAppliedSuccessMsg(null), 4000);
   };
 
   return (
     <div className="space-y-6">
+
+      {submissionPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="submission-popup-title">
+          <div className="glass-panel w-full max-w-md rounded-2xl border border-emerald-500/40 p-6 text-center shadow-2xl">
+            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" />
+            <h2 id="submission-popup-title" className="mt-3 text-xl font-bold text-white">Application Submitted</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Your application for <strong>{submissionPopup.title}</strong> at <strong>{submissionPopup.company}</strong> was submitted. The recruiter and TPO admin have been notified.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSubmissionPopup(null)}
+              className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-emerald-500"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Toast Alert */}
       {appliedSuccessMsg && (
@@ -178,7 +212,7 @@ export default function JobSearch({ student, jobs, applications, setApplications
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {filteredJobs.map(job => {
           const matchPercent = calculateJobMatch(student.skills, job.skillsRequired);
-          const isApplied = applications.some(a => a.jobId === job.id);
+          const isApplied = applications.some(a => String(a.jobId) === String(job._id || job.id));
 
           return (
             <div key={job.id} className="glass-card p-5 rounded-2xl border border-slate-800 space-y-4 flex flex-col justify-between">
@@ -254,14 +288,14 @@ export default function JobSearch({ student, jobs, applications, setApplications
                   </button>
                   <button 
                     onClick={() => handleApplyJob(job)}
-                    disabled={isApplied}
+                    disabled={isApplied || isCheckingResume}
                     className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md ${
                       isApplied 
                         ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 cursor-not-allowed'
                         : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
                     }`}
                   >
-                    {isApplied ? 'Applied ✓' : '1-Click Apply'}
+                    {isApplied ? 'Applied ✓' : isCheckingResume ? 'Checking Resume...' : '1-Click Apply'}
                   </button>
                 </div>
               </div>

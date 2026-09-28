@@ -11,11 +11,13 @@ import {
 } from 'lucide-react';
 
 import React from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function CompanyDashboard({ jobs, applications, setActiveTab }) {
+  const { user } = useAuth();
   const activeJobsCount = jobs.length;
-  const totalApplicants = applications.length + 340;
-  const shortlistedCount = applications.filter(a => a.status === 'Shortlisted' || a.status === 'Interview Scheduled').length + 42;
+  const totalApplicants = applications.length;
+  const shortlistedCount = applications.filter(a => a.status === 'Shortlisted' || a.status === 'Interview Scheduled').length;
 
   return (
     <div className="space-y-6">
@@ -26,7 +28,7 @@ export default function CompanyDashboard({ jobs, applications, setActiveTab }) {
           <div>
             <div className="flex items-center space-x-2 text-purple-400 font-semibold text-xs mb-1">
               <Building2 className="w-4 h-4" />
-              <span>Google Campus Recruitment Portal</span>
+              <span>{user?.companyName || user?.name || 'Recruiter'} Recruitment Portal</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
               Recruiter Dashboard & Talent Pipeline
@@ -57,7 +59,7 @@ export default function CompanyDashboard({ jobs, applications, setActiveTab }) {
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-3xl font-black text-white">{activeJobsCount}</span>
-            <span className="text-xs text-purple-400 font-medium">Placement Drives</span>
+            <span className="text-xs text-purple-400 font-medium">Your postings</span>
           </div>
         </div>
 
@@ -70,7 +72,7 @@ export default function CompanyDashboard({ jobs, applications, setActiveTab }) {
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-3xl font-black text-white">{totalApplicants}</span>
-            <span className="text-xs text-indigo-400 font-medium">+18 today</span>
+            <span className="text-xs text-indigo-400 font-medium">Your candidates</span>
           </div>
         </div>
 
@@ -83,7 +85,7 @@ export default function CompanyDashboard({ jobs, applications, setActiveTab }) {
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-3xl font-black text-white">{shortlistedCount}</span>
-            <span className="text-xs text-emerald-400 font-medium">Ready for Interview</span>
+            <span className="text-xs text-emerald-400 font-medium">Your pipeline</span>
           </div>
         </div>
 

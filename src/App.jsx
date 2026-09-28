@@ -1,10 +1,17 @@
 import { AuthProvider, useAuth } from './context/AuthContext';
-// Data & Utils
 import { INITIAL_APPLICATIONS, INITIAL_JOBS, INITIAL_STUDENT_PROFILE } from './data/mockData';
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+
+import { API_URL } from './utils/api';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import { API_URL } from './utils/api';
+
+// Data & Utils
+
+
+
+
+
 
 const AuthPage = lazy(() => import('./pages/auth/AuthPage'));
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
@@ -53,17 +60,21 @@ function MainContent() {
   useEffect(() => {
     async function loadBackendData() {
       try {
-        const res = await fetch(`${API_URL}/api/jobs`);
+        const isRecruiter = user?.role === 'company';
+        const endpoint = isRecruiter ? `${API_URL}/api/jobs/mine` : `${API_URL}/api/jobs`;
+        const res = await fetch(endpoint, user?.token ? {
+          headers: { Authorization: `Bearer ${user.token}` }
+        } : undefined);
         const data = await res.json();
-        if (res.ok && data.jobs && data.jobs.length > 0) {
+        if (res.ok && Array.isArray(data.jobs)) {
           setJobs(data.jobs.map((job) => ({ ...job, id: job._id || job.id })));
         }
       } catch {
-        // Backend offline, keep local initial jobs
+        if (user?.role === 'company') setJobs([]);
       }
     }
     loadBackendData();
-  }, []);
+  }, [user?.role, user?.token]);
 
   // Always replace shared demo applications with the server-scoped list.
   useEffect(() => {
@@ -107,7 +118,7 @@ function MainContent() {
         setActiveTab('company-dashboard');
       }
     } else if (user?.role === 'admin') {
-      if (!['admin-dashboard', 'student-mgmt', 'drives-mgmt', 'companies-mgmt'].includes(activeTab)) {
+      if (!['admin-dashboard', 'student-mgmt', 'drives-mgmt'].includes(activeTab)) {
         setActiveTab('admin-dashboard');
       }
     }
@@ -190,7 +201,6 @@ function MainContent() {
         case 'student-mgmt':
           return <StudentManagement />;
         case 'drives-mgmt':
-        case 'companies-mgmt':
           return <PlacementDrives />;
         default:
           return <AdminDashboard />;

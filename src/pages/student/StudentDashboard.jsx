@@ -1,17 +1,18 @@
-import React from 'react';
-import { 
-  Sparkles, 
-  TrendingUp, 
-  Briefcase, 
-  CheckCircle2, 
-  Clock, 
-  Award, 
+import {
   ArrowRight,
-  Flame,
+  Award,
+  Briefcase,
+  CheckCircle2,
+  Clock,
   FileCheck,
-  Zap,
-  Target
+  Flame,
+  Sparkles,
+  Target,
+  TrendingUp,
+  Zap
 } from 'lucide-react';
+
+import React from 'react';
 
 export default function StudentDashboard({ student, jobs, applications, setActiveTab }) {
   return (
@@ -58,8 +59,10 @@ export default function StudentDashboard({ student, jobs, applications, setActiv
             </span>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-black text-white">{student.atsScore}%</span>
-            <span className="text-xs text-emerald-400 font-medium">Ready for Top MNCs</span>
+            <span className="text-3xl font-black text-white">{student.atsScore == null ? '—' : `${student.atsScore}%`}</span>
+            <span className="text-xs text-emerald-400 font-medium">
+              {student.atsScore == null ? 'Upload resume first' : 'Ready for Top MNCs'}
+            </span>
           </div>
           <button 
             onClick={() => setActiveTab('resume')}

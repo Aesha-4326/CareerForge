@@ -190,6 +190,92 @@ Return JSON ONLY in this exact schema format without markdown code fences or con
   };
 }
 
+async function answerCareerQuestion(question, studentSkills = [], targetGoal = "") {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const prompt = `You are CareerForge's evidence-based career mentor. Answer the student's question accurately and practically.
+Question: ${question}
+Current career goal: ${targetGoal || "Not specified"}
+Current skills: ${studentSkills.join(", ") || "Not specified"}
+
+Rules:
+- Identify the field or technology being discussed before answering.
+- Explain uncertainty or version-dependent details instead of inventing facts.
+- Prefer official documentation, standard industry practice, and clearly labelled assumptions.
+- Give a direct answer first, then concise explanation, practical next steps, and useful resources.
+- If the question is not career/learning related, politely say this assistant focuses on career, education, skills, projects, interviews, and learning plans.
+- Return JSON only: {"answer":"...","field":"...","nextSteps":["..."],"resources":["..."]}`;
+
+  if (apiKey && apiKey !== "AIzaSyDemoKeyForCareerForgePlacementPortalAI" && GoogleGenAI) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({ model, contents: prompt });
+      const match = (response.text || "").match(/\{[\s\S]*\}/);
+      if (match) return { ...JSON.parse(match[0]), provider: "Google Gemini" };
+    } catch (error) {
+      console.warn("Gemini career answer warning:", error.message);
+    }
+  }
+
+  const normalizedQuestion = question.toLowerCase();
+  if ((normalizedQuestion.includes("react") && normalizedQuestion.includes("angular")) || normalizedQuestion.includes("react vs angular")) {
+    return {
+      field: "React vs Angular",
+      answer: "React is a JavaScript library focused on UI and lets you choose supporting libraries. Angular is a complete TypeScript framework with built-in routing, forms, dependency injection, and a structured project architecture. Choose React for flexible product teams and gradual adoption; choose Angular for large applications that benefit from strong conventions and built-in tooling. Neither is universally better.",
+      nextSteps: ["Learn JavaScript or TypeScript fundamentals first.", "Build the same small CRUD app in both frameworks.", "For React, learn components, hooks, routing, state, testing, and performance.", "For Angular, learn components, services, RxJS, routing, forms, and dependency injection.", "Choose based on your target job postings and build two portfolio projects in the selected stack."],
+      resources: ["https://react.dev/learn", "https://angular.dev/overview", "https://developer.mozilla.org/en-US/docs/Web/JavaScript"],
+      provider: "CareerForge knowledge base"
+    };
+  }
+
+  if (normalizedQuestion.includes("python") && (normalizedQuestion.includes("learn") || normalizedQuestion.includes("start") || normalizedQuestion.includes("career"))) {
+    return {
+      field: "Python",
+      answer: "Python is a strong starting language for web development, automation, data analysis, and AI. Start with syntax, functions, collections, modules, exceptions, file handling, and object-oriented programming before moving to a specialization.",
+      nextSteps: ["Weeks 1-2: syntax, functions, lists, dictionaries, modules, and exceptions.", "Weeks 3-4: OOP, testing with pytest, virtual environments, Git, and REST APIs.", "Then choose one path: FastAPI/Django for web, Pandas/SQL for data, or NumPy/PyTorch for AI.", "Build one practical project and deploy it instead of only following tutorials."],
+      resources: ["https://docs.python.org/3/tutorial/", "https://packaging.python.org/en/latest/tutorials/installing-packages/", "https://pytest.org/"],
+      provider: "CareerForge knowledge base"
+    };
+  }
+
+  const field = question.match(/python|java|javascript|react|angular|node|sql|cloud|aws|azure|devops|data science|machine learning|ai|cyber security|testing|ui|ux|product/i)?.[0] || "career planning";
+  const isComparison = /\b(vs\.?|versus|difference between|compare)\b/i.test(question);
+  const asksHow = /\b(how|roadmap|steps|learn|start|begin)\b/i.test(question);
+  const asksWhether = /\b(is|should|worth|good|future|scope|career)\b/i.test(question);
+  const asksInterview = /\b(interview|resume|cv|job|hire|hiring)\b/i.test(question);
+
+  let answer = `${field} can be a useful direction, but the right answer depends on your target role, current level, and the kind of work you want to do.`;
+  let nextSteps = [
+    `Define the ${field} role you want and compare its requirements across 5-10 current job postings.`,
+    `Learn the fundamentals of ${field}, then build one small project that demonstrates them.`,
+    "Review the project, explain your decisions, and document what you would improve next."
+  ];
+  let resources = [`Official ${field} documentation`, `A beginner-to-intermediate ${field} project`, "Current job descriptions for your target role"];
+
+  if (isComparison) {
+    answer = `A useful comparison of ${field} options should consider learning curve, common job requirements, ecosystem maturity, and the kind of products you want to build. There is no universally best choice; use the role you are targeting and the available opportunities as the deciding factors.`;
+    nextSteps = ["Name the two technologies or roles you want compared.", "Build the same small feature in both options.", "Choose the one that matches more of your target job postings and interests."];
+  } else if (asksHow) {
+    answer = `To learn ${field} effectively, start with its core concepts rather than jumping between tools. Follow a short sequence of fundamentals, guided practice, testing, and one complete project. That gives you evidence of skill instead of only course completion.`;
+    nextSteps = [`Weeks 1-2: learn the syntax, core concepts, and standard tooling for ${field}.`, `Weeks 3-4: build a small guided project and add tests, Git history, and documentation.`, `After that: choose a specialization, deploy a project, and compare your gaps with current job descriptions.`];
+    resources = [`Official ${field} getting-started guide`, `A hands-on ${field} project with tests`, "Documentation for the specialization you choose"];
+  } else if (asksInterview) {
+    answer = `For ${field} roles, interview preparation should connect fundamentals to practical decisions. Be ready to explain a project, discuss trade-offs, debug a small problem, and show how you learn unfamiliar tools.`;
+    nextSteps = [`Prepare a concise walkthrough of your strongest ${field} project.`, "Practice fundamentals, debugging, and one system or design problem each week.", "Match your resume keywords to the job description without claiming skills you cannot demonstrate."];
+  } else if (asksWhether) {
+    answer = `${field} can be a good career choice when it matches the work you enjoy and the roles available in your market. Check demand, entry-level requirements, realistic learning time, and whether you can build projects that demonstrate the skill before committing fully.`;
+    nextSteps = ["Read recent entry-level and internship postings for this field.", "Speak with practitioners or review real project repositories.", `Build a small ${field} project over 2-4 weeks and reassess your interest.`];
+  }
+
+  return {
+    field,
+    answer,
+    nextSteps,
+    resources,
+    provider: "CareerForge knowledge base"
+  };
+}
+
 // 1. Generate & Save Roadmap (Protected)
 const generateRoadmapPreview = async (req, res) => {
   try {
@@ -208,6 +294,35 @@ const generateRoadmapPreview = async (req, res) => {
   } catch (error) {
     console.error("Error generating roadmap preview:", error);
     res.status(500).json({ message: "Failed to generate AI career roadmap preview" });
+  }
+};
+
+const answerCareerQuestionPreview = async (req, res) => {
+  try {
+    const { question, currentSkills = [], targetGoal = "" } = req.body;
+    if (!question || !question.trim()) {
+      return res.status(400).json({ message: "Please enter a career or learning question." });
+    }
+    const answer = await answerCareerQuestion(question.trim(), currentSkills, targetGoal);
+    res.status(200).json({ success: true, answer });
+  } catch (error) {
+    console.error("Error answering career question:", error);
+    res.status(500).json({ message: "Failed to answer career question" });
+  }
+};
+
+const answerCareerQuestionAuthenticated = async (req, res) => {
+  try {
+    const { question, targetGoal = "" } = req.body;
+    if (!question || !question.trim()) {
+      return res.status(400).json({ message: "Please enter a career or learning question." });
+    }
+    const student = await User.findById(req.user.userId).select("skills");
+    const answer = await answerCareerQuestion(question.trim(), student?.skills || [], targetGoal);
+    res.status(200).json({ success: true, answer });
+  } catch (error) {
+    console.error("Error answering authenticated career question:", error);
+    res.status(500).json({ message: "Failed to answer career question" });
   }
 };
 
@@ -282,6 +397,8 @@ const getRoadmapHistory = async (req, res) => {
 
 module.exports = {
   generateRoadmapPreview,
+  answerCareerQuestionPreview,
+  answerCareerQuestionAuthenticated,
   generateAndSaveRoadmap,
   getLatestRoadmap,
   getRoadmapHistory

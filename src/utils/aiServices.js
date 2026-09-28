@@ -41,13 +41,13 @@ export function analyzeResumeContent(resumeText, targetRole = "Full Stack Engine
   }));
 
   // Calculations
-  const keywordScore = Math.min(100, Math.round((matchedKeywords.length / 12) * 100));
-  const verbScore = Math.min(100, Math.round((matchedVerbs.length / 8) * 100));
+  const keywordScore = Math.min(100, Math.round((matchedKeywords.length / technicalKeywords.length) * 100));
+  const verbScore = Math.min(100, Math.round((matchedVerbs.length / actionVerbs.length) * 100));
   const sectionScore = Math.round((sectionChecks.filter(s => s.present).length / requiredSections.length) * 100);
   const impactScore = hasNumbers ? 100 : 25;
   
   // Final Weighted ATS Score
-  const overallATSScore = Math.round((keywordScore * 0.35) + (sectionScore * 0.30) + (verbScore * 0.20) + (impactScore * 0.15));
+  const overallATSScore = Math.min(89, Math.round((keywordScore * 0.35) + (sectionScore * 0.30) + (verbScore * 0.20) + (impactScore * 0.15)));
 
   // Key Suggestions
   const suggestions = [];
@@ -98,7 +98,7 @@ export function analyzeResumeContent(resumeText, targetRole = "Full Stack Engine
   });
 
   return {
-    score: Math.max(0, Math.min(100, overallATSScore)),
+    score: Math.max(0, overallATSScore),
     keywordMatchRate: `${Math.min(100, matchedKeywords.length * 10)}%`,
     foundKeywords: matchedKeywords.map(k => k.toUpperCase()),
     missingKeywords: ["DOCKER", "KUBERNETES", "REDIS", "SYSTEM DESIGN"].filter(k => !matchedKeywords.includes(k.toLowerCase())),

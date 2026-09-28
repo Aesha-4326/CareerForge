@@ -2,6 +2,7 @@ const Resume = require("../models/Resume");
 const User = require("../models/User");
 
 let GoogleGenAI;
+const ATS_SCORE_CAP = 89;
 try {
   const genaiPkg = require("@google/genai");
   GoogleGenAI = genaiPkg.GoogleGenAI;
@@ -59,7 +60,7 @@ Return JSON ONLY in this exact schema format without markdown code fences or con
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           return {
-            score: Math.max(0, Math.min(100, parsed.score || 0)),
+            score: Math.max(0, Math.min(ATS_SCORE_CAP, Number(parsed.score) || 0)),
             keywordMatchRate: parsed.keywordMatchRate || "85%",
             foundKeywords: parsed.foundKeywords || ["JAVA", "REACT", "SPRING BOOT"],
             missingKeywords: parsed.missingKeywords || ["DOCKER", "KUBERNETES", "MICROSERVICES"],
@@ -89,7 +90,7 @@ Return JSON ONLY in this exact schema format without markdown code fences or con
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           return {
-            score: Math.max(0, Math.min(100, parsed.score || 0)),
+            score: Math.max(0, Math.min(ATS_SCORE_CAP, Number(parsed.score) || 0)),
             keywordMatchRate: parsed.keywordMatchRate || "85%",
             foundKeywords: parsed.foundKeywords || ["JAVA", "REACT", "SPRING BOOT"],
             missingKeywords: parsed.missingKeywords || ["DOCKER", "KUBERNETES", "MICROSERVICES"],
@@ -138,12 +139,12 @@ Return JSON ONLY in this exact schema format without markdown code fences or con
     present: sec.pattern.test(text)
   }));
 
-  const keywordScore = Math.min(100, Math.round((matchedKeywords.length / 12) * 100));
-  const verbScore = Math.min(100, Math.round((matchedVerbs.length / 8) * 100));
+  const keywordScore = Math.min(100, Math.round((matchedKeywords.length / technicalKeywords.length) * 100));
+  const verbScore = Math.min(100, Math.round((matchedVerbs.length / actionVerbs.length) * 100));
   const sectionScore = Math.round((sectionChecks.filter(s => s.present).length / requiredSections.length) * 100);
   const impactScore = hasNumbers ? 100 : 25;
   
-  const overallATSScore = Math.round((keywordScore * 0.35) + (sectionScore * 0.30) + (verbScore * 0.20) + (impactScore * 0.15));
+  const overallATSScore = Math.min(ATS_SCORE_CAP, Math.round((keywordScore * 0.35) + (sectionScore * 0.30) + (verbScore * 0.20) + (impactScore * 0.15)));
 
   const suggestions = [];
   if (!sectionChecks[0].present) {
@@ -193,7 +194,7 @@ Return JSON ONLY in this exact schema format without markdown code fences or con
   });
 
   return {
-    score: Math.max(0, Math.min(100, overallATSScore)),
+    score: Math.max(0, overallATSScore),
     keywordMatchRate: `${Math.min(100, Math.max(40, matchedKeywords.length * 10))}%`,
     foundKeywords: matchedKeywords.map(k => k.toUpperCase()),
     missingKeywords: ["DOCKER", "KUBERNETES", "REDIS", "SYSTEM DESIGN"].filter(k => !matchedKeywords.includes(k.toLowerCase())),
@@ -203,10 +204,8 @@ Return JSON ONLY in this exact schema format without markdown code fences or con
   };
 }
 
-// 1. Analyze and Save Resume (Protected)
-const analyzeAndSaveResume = async (req, res) => {
+const analyzeResume = async (req, res) => {
   try {
-    const studentId = req.user.userId;
     const { resumeText, targetJobDescription, fileName } = req.body;
 
     if (!resumeText || !resumeText.trim()) {
@@ -215,8 +214,10 @@ const analyzeAndSaveResume = async (req, res) => {
 
     const analysis = await performATSAnalysis(resumeText, targetJobDescription);
 
-    const resumeDoc = await Resume.create({
-      studentId,
+    res.status(200).json({
+      success: true,
+      message: `ATS analysis completed via ${analysis.provider || "CareerForge fallback"}. Resume has not been saved yet.`,
+      analysisResult: {
       resumeText: resumeText.trim(),
       targetJobDescription: targetJobDescription || "",
       fileName: fileName || "resume.txt",
@@ -227,19 +228,48 @@ const analyzeAndSaveResume = async (req, res) => {
       actionVerbsScore: analysis.actionVerbsScore,
       sectionChecks: analysis.sectionChecks,
       suggestions: analysis.suggestions
+      },
+      provider: analysis.provider || "CareerForge fallback"
+    });
+  } catch (error) {
+    console.error("Error analyzing resume:", error);
+    res.status(500).json({ message: "Failed to analyze resume" });
+  }
+};
+
+const saveResume = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    const { resumeText, targetJobDescription, fileName, analysisResult } = req.body;
+    if (!resumeText || !resumeText.trim() || !analysisResult) {
+      return res.status(400).json({ message: "Check your resume with ATS before saving it." });
+    }
+
+    const resumeDoc = await Resume.create({
+      studentId,
+      resumeText: resumeText.trim(),
+      targetJobDescription: targetJobDescription || "",
+      fileName: fileName || "resume.txt",
+      atsScore: analysisResult.atsScore,
+      keywordMatchRate: analysisResult.keywordMatchRate,
+      foundKeywords: analysisResult.foundKeywords || [],
+      missingKeywords: analysisResult.missingKeywords || [],
+      actionVerbsScore: analysisResult.actionVerbsScore,
+      sectionChecks: analysisResult.sectionChecks || [],
+      suggestions: analysisResult.suggestions || []
     });
 
-    await User.findByIdAndUpdate(studentId, { atsScore: analysis.score });
+    await User.findByIdAndUpdate(studentId, { atsScore: resumeDoc.atsScore });
 
     res.status(201).json({
       success: true,
-      message: `Resume analyzed via ${analysis.provider || "CareerForge fallback"} and saved to MongoDB!`,
+      message: "Resume saved successfully and is ready to attach to applications.",
       analysisResult: resumeDoc
     });
 
   } catch (error) {
-    console.error("Error analyzing resume:", error);
-    res.status(500).json({ message: "Failed to analyze and save resume" });
+    console.error("Error saving resume:", error);
+    res.status(500).json({ message: "Failed to save resume" });
   }
 };
 
@@ -273,8 +303,22 @@ const getResumeHistory = async (req, res) => {
   }
 };
 
+const deleteCurrentResume = async (req, res) => {
+  try {
+    const deleteResult = await Resume.deleteMany({ studentId: req.user.userId });
+    
+    await User.findByIdAndUpdate(req.user.userId, { $set: { atsScore: null } });
+    res.status(200).json({ success: true, deletedCount: deleteResult.deletedCount, message: "Saved resume cleared." });
+  } catch (error) {
+    console.error("Error deleting latest resume:", error);
+    res.status(500).json({ message: "Failed to delete resume." });
+  }
+};
+
 module.exports = {
-  analyzeAndSaveResume,
+  analyzeResume,
+  saveResume,
   getCurrentResume,
-  getResumeHistory
+  getResumeHistory,
+  deleteCurrentResume
 };

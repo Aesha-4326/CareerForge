@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Resume = require("../models/Resume");
 
 // 1. Get Student Profile (Protected)
 const getStudentProfile = async (req, res) => {
@@ -33,6 +34,7 @@ const getStudentProfile = async (req, res) => {
           { title: "Microservices E-Commerce API", tech: "Java, Spring Boot, Docker, Redis", description: "High-throughput RESTful services for order processing and inventory management.", link: "github.com/profilename/spring-ecommerce" }
         ];
 
+    const latestResume = await Resume.findOne({ studentId: user._id }).sort({ createdAt: -1 }).select("atsScore");
     const profile = {
       id: user._id,
       name: user.name,
@@ -47,7 +49,7 @@ const getStudentProfile = async (req, res) => {
       location: user.location || "Surat, India",
       github: user.github || "github.com/profilename",
       linkedin: user.linkedin || "linkedin.com/in/profilename",
-      atsScore: user.atsScore || 88,
+      atsScore: latestResume?.atsScore ?? null,
       skills,
       certifications,
       projects
@@ -122,7 +124,7 @@ const updateStudentProfile = async (req, res) => {
         location: user.location,
         github: user.github,
         linkedin: user.linkedin,
-        atsScore: user.atsScore,
+        atsScore: latestResume?.atsScore ?? null,
         skills: user.skills,
         certifications: user.certifications,
         projects: user.projects

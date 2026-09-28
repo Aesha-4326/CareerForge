@@ -228,8 +228,27 @@ const createDrive = async (req, res) => {
       status: status || "Upcoming",
       eligibleCount: eligibleCount ? Number(eligibleCount) : 150,
       appliedCount: appliedCount ? Number(appliedCount) : 0,
-      rounds: rounds || ["Online Test", "Technical Interview", "HR Round"]
+      rounds: rounds || ["Online Test", "Technical Interview", "HR Round"],
+      createdBy: req.user.userId
     });
+
+    const driveJob = await Job.create({
+      company: drive.companyName,
+      logo: drive.logo,
+      title: drive.driveTitle,
+      roleCategory: drive.jobRole,
+      location: "Campus Drive",
+      workMode: "On-site",
+      ctc: drive.ctc,
+      minCgpa: drive.minCgpa,
+      allowedBranches: drive.allowedBranches,
+      deadline: drive.driveDate,
+      description: `${drive.driveTitle} campus recruitment drive by ${drive.companyName}.`,
+      rounds: drive.rounds,
+      postedBy: req.user.userId
+    });
+    drive.jobId = driveJob._id;
+    await drive.save();
 
     res.status(201).json({
       success: true,
@@ -256,6 +275,21 @@ const updateDrive = async (req, res) => {
       return res.status(404).json({ message: "Placement drive not found." });
     }
 
+    if (drive.jobId) {
+      await Job.findByIdAndUpdate(drive.jobId, {
+        company: drive.companyName,
+        logo: drive.logo,
+        title: drive.driveTitle,
+        roleCategory: drive.jobRole,
+        ctc: drive.ctc,
+        minCgpa: drive.minCgpa,
+        allowedBranches: drive.allowedBranches,
+        deadline: drive.driveDate,
+        rounds: drive.rounds,
+        description: `${drive.driveTitle} campus recruitment drive by ${drive.companyName}.`
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: "Campus Placement Drive updated in MongoDB!",
@@ -278,6 +312,8 @@ const deleteDrive = async (req, res) => {
     if (!drive) {
       return res.status(404).json({ message: "Placement drive not found." });
     }
+
+    if (drive.jobId) await Job.findByIdAndDelete(drive.jobId);
 
     res.status(200).json({
       success: true,

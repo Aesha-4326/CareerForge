@@ -1,17 +1,21 @@
 const express = require("express");
 const { protect, authorize } = require("../middleware/authMiddleware");
 const {
-  analyzeAndSaveResume,
+  analyzeResume,
+  saveResume,
   getCurrentResume,
-  getResumeHistory
+  getResumeHistory,
+  deleteCurrentResume
 } = require("../controllers/resumeController");
 
 const router = express.Router();
 
 router.use(protect, authorize("student", "admin"));
 
-router.post("/analyze", analyzeAndSaveResume);
+router.post("/analyze", analyzeResume);
+router.post("/save", saveResume);
 router.get("/latest", getCurrentResume);
 router.get("/history", getResumeHistory);
+router.delete("/latest", deleteCurrentResume);
 
 module.exports = router;

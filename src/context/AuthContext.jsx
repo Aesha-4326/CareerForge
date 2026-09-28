@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+
 import { API_URL } from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -42,8 +43,8 @@ export function AuthProvider({ children }) {
           branch: data.user.branch,
           companyName: data.user.companyName,
           title: data.user.title,
-          cgpa: data.user.cgpa || 8.5,
-          atsScore: data.user.atsScore || 85,
+          cgpa: data.user.cgpa,
+          atsScore: data.user.atsScore ?? null,
           token: data.token,
           initials: data.user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'US',
           avatarBg: data.user.role === 'student' ? 'bg-indigo-600' : data.user.role === 'company' ? 'bg-emerald-600' : 'bg-rose-600'
@@ -90,8 +91,8 @@ export function AuthProvider({ children }) {
           branch: data.user.branch,
           companyName: data.user.companyName,
           title: data.user.title,
-          cgpa: data.user.cgpa || 8.5,
-          atsScore: data.user.atsScore || 85,
+          cgpa: data.user.cgpa,
+          atsScore: data.user.atsScore ?? null,
           token: data.token,
           initials: data.user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'US',
           avatarBg: data.user.role === 'student' ? 'bg-indigo-600' : data.user.role === 'company' ? 'bg-emerald-600' : 'bg-rose-600'
